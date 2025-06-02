@@ -11,7 +11,9 @@ interface ListingCardProps {
   price: number | null | string;
   priceLabel?: string;
   badges?: string[];
+  published: string;
   details?: Record<string, string | number>;
+  onPublish: (id: number) => void;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
 }
@@ -25,7 +27,9 @@ const ListingCard = ({
   priceLabel = 'Price',
   badges = [],
   details = {},
+  published,
   onEdit,
+  onPublish,
   onDelete
 }: ListingCardProps) => {
   if(price !== null && typeof price === 'number'){
@@ -51,6 +55,9 @@ const ListingCard = ({
             <span className="text-sm text-muted-foreground ml-1">
               { price !== "" ? `${priceLabel}` : '' }
             </span>
+            <span className="text-sm text-muted-foreground ml-1">
+              
+            </span>
           </div>
         </div>
         {badges.length > 0 && (
@@ -65,6 +72,22 @@ const ListingCard = ({
             ))}
           </div>
         )}
+        {/* Toggle published */}
+              <div className="flex justify-end">
+                  <button
+                    onClick={onPublish.bind(null,id)}
+                    className={`w-14 h-1 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                      published === "1" ? "bg-blue-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                        published === "1" ? "translate-x-6" : ""
+                      }`}
+                    ></div>
+                  </button>
+              </div>
+              {/* end toggle */}
       </CardHeader>
       <CardContent className="text-sm pb-4 flex-grow">
         {description && (
@@ -80,6 +103,7 @@ const ListingCard = ({
             ))}
           </dl>
         )}
+        
       </CardContent>
       <CardFooter className="border-t pt-4 pb-4 flex justify-between gap-2 flex-wrap sm:flex-nowrap">
         <Button 

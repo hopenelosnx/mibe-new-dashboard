@@ -8,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
-import { getFlightsWithPagination, Flight, addFlight, updateFlight, deleteFlight } from '@/services/Listings/flights';
+import { getFlightsWithPagination, Flight, addFlight, updateFlight, deleteFlight, publishFlights } from '@/services/Listings/flights';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -28,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import getStatusBadge from '@/components/ui/CustomBadges';
 
 const FlightsPage = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -49,7 +48,7 @@ const FlightsPage = () => {
 
   useEffect(() => {
     fetchFlights(pagination.page, pagination.limit);
-  }, []);
+  }, [pagination.page, pagination.limit]);
 
   const fetchFlights = async (page: number, limit: number) => {
       setIsLoading(true);
@@ -80,6 +79,17 @@ const FlightsPage = () => {
     if (flight) {
       setCurrentFlight(flight);
       setFormOpen(true);
+    }
+  };
+
+  const handlePublish = (id: number) => {
+    const flight = flights.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (flight) { 
+      setCurrentFlight(flight)
+      values.published = flight.published === "1" ? "0" : "1";
+      handlePublishedFlight(values);
     }
   };
 
@@ -115,15 +125,17 @@ const FlightsPage = () => {
           arrival_time: new Date(values.arrival_time).toISOString(),
         });
 
-        if(!updatedFlight.success){
+        if(!updatedFlight){
           toast.error('Failed to update flight');
+        }else{
+          toast.success('Flight updated successfully');
         }
         fetchFlights(pagination.page, pagination.limit);
-        toast.success('Flight updated successfully');
       } catch (error) {
         console.error('Error updating flight:', error);
         toast.error('Failed to update flight');
       } finally {
+        setCurrentFlight(null)
         setIsProcessing(false);
       }
     };
@@ -132,8 +144,7 @@ const FlightsPage = () => {
     try {
       // Add new flight
       const newFlight = await addFlight(values);
-      console.log(values);
-      if(!newFlight.success){
+      if(!newFlight || !newFlight.id){
         toast.error('Failed to save flight');
       }
 
@@ -151,18 +162,36 @@ const FlightsPage = () => {
     fetchFlights(newPage, pagination.limit);
   };
 
+  const handlePublishedFlight = async(published: { published: string })=>{
+    if(!currentFlight) return;
+    try{
+      console.log(currentFlight.id)
+      const response = await publishFlights(currentFlight.id,{...published});
+      if(!response){
+          toast.error('Failed to publish flight');
+      }else{
+        toast.success('Flight updated successfully');
+      }
+      fetchFlights(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update flight published');
+    }finally{
+      setCurrentFlight(null)
+    }
+  }
 
   const additionalFields = [
     { name: 'airline', label: 'Airline', type: 'text', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false, defaultValue:"1" },
     { name: 'price', label: 'Price', type: 'number', required: true },
     // { name: 'image_url', label: 'Image URL', type: 'text', required: false },
     // { name: 'image_file', label: 'Image File', type: 'file', required: false },
     { name: 'flight_number', label: 'Flight Number', type: 'text', required: true },
     { name: 'departure_city', label: 'Departure City', type: 'text', required: true },
     { name: 'arrival_city', label: 'Arrival City', type: 'text', required: true },
-    { name: 'departure_time', label: 'Departure Time (YYYY-MM-DD HH:MM)', type: 'datetime', required: true },
-    { name: 'arrival_time', label: 'Arrival Time (YYYY-MM-DD HH:MM)', type: 'datetime', required: true },
+    { name: 'departure_time', label: 'Departure Time (YYYY-MM-DD HH:MM)', type: 'datetime-local', required: true },
+    { name: 'arrival_time', label: 'Arrival Time (YYYY-MM-DD HH:MM)', type: 'datetime-local', required: true },
   ];
 
   return (
@@ -241,7 +270,9 @@ const FlightsPage = () => {
                 }),
                 'Date': new Date(flight.departure_time).toLocaleDateString()
               }}
+              published={flight.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -255,7 +286,6 @@ const FlightsPage = () => {
                 <TableHead>Airline</TableHead>
                 <TableHead>Depart City</TableHead>
                 <TableHead>Arrival City</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -266,9 +296,22 @@ const FlightsPage = () => {
                   <TableCell>{flight.airline}</TableCell>
                   <TableCell>{flight.departure_city}</TableCell>
                   <TableCell>{flight.arrival_city}</TableCell>
-                  <TableCell>{getStatusBadge(flight.published)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,flight.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            flight.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              flight.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -305,11 +348,11 @@ const FlightsPage = () => {
           )}
           <PaginationContent>
             <PaginationPrevious
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
+              onClick={pagination.page > 1 ? () => handlePageChange(pagination.page - 1) : undefined}
+              className={pagination.page <= 1 ? "disabled-class" : ""}
             />
             {[...Array(pagination.totalPages)].map((_, idx) => (
-              <PaginationItem key={idx}>
+              <PaginationItem key={`page-${idx}`}>
                 <PaginationLink
                   isActive={pagination.page === idx + 1}
                   onClick={() => handlePageChange(idx + 1)}
@@ -319,8 +362,8 @@ const FlightsPage = () => {
               </PaginationItem>
             ))}
             <PaginationNext
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages}
+              className={pagination.page >= pagination.totalPages ? "disabled-class" : ""}
+              onClick={pagination.page < pagination.totalPages ? () => handlePageChange(pagination.page + 1) : undefined}
             />
           </PaginationContent>
         </Pagination>
@@ -352,6 +395,8 @@ const FlightsPage = () => {
           />
         )
       }
+      
+
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog 
         open={isDeleteDialogOpen}
@@ -359,6 +404,7 @@ const FlightsPage = () => {
         onConfirm={confirmDelete}
         title="Delete Flight"
         description="Are you sure you want to delete this flight? This action cannot be undone."
+        isDeleting={isProcessing}
       />
     </>
   );

@@ -15,6 +15,7 @@ export interface Flight {
   location?: string;
 }
 
+const token = localStorage.getItem("travelUserToken");
 export const getFlights = async (): Promise<Flight[]> => {
     const response = await fetch(`${apiConfig.baseurl}flights/`);
     if (!response.ok) {
@@ -28,7 +29,6 @@ export const getFlightsWithPagination = async (
   limit: number = 10
 ): Promise<{ flights: Flight[]; pagination: { page: number; limit: number; totalPages: number; totalRecords: number } }> => {
   const response = await fetch(`${apiConfig.baseurl}flights/paginated/?page=${page}&limit=${limit}`);
-  console.log(response)
   if (!response.ok) {
     throw new Error("Failed to fetch flights with pagination");
   }
@@ -41,11 +41,18 @@ export const getFlightsWithPagination = async (
 
 
 export const addFlight = async (flight: Omit<Flight, 'id'>): Promise<Flight> => {
-    console.log(JSON.stringify(flight))
+    
+    if (flight.published === "") {
+        flight.published = "1";
+    }
+    const data = JSON.stringify(flight);
     const response = await fetch(`${apiConfig.baseurl}flights/`, {
         method: 'POST',
-        headers: apiConfig.headers,
-        body: JSON.stringify(flight),
+        headers: {
+            "Content-Type":"application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: data,
     });
     if (!response.ok) {
         throw new Error('Failed to add flight');
@@ -56,7 +63,10 @@ export const addFlight = async (flight: Omit<Flight, 'id'>): Promise<Flight> => 
 export const updateFlight = async (id: number, flight: Partial<Flight>): Promise<Flight> => {
     const response = await fetch(`${apiConfig.baseurl}flights/${id}`, {
         method: 'PUT',
-        headers: apiConfig.headers,
+        headers: {
+            "Content-Type":"application/json",
+            "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(flight),
     });
     if (!response.ok) {
@@ -82,3 +92,20 @@ export const getFlightById = async (id: number): Promise<Flight> => {
     }
     return response.json();
 };
+
+export const publishFlights = async(id: number, published: { published: string }): Promise<Flight> => {
+    const response = await fetch(`${apiConfig.baseurl}flights/published/${id}`,{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(published)
+    })
+    if(!response.ok){
+        console.log(response)
+        throw new Error("Failed to publish flight")
+    }
+
+    return response.json();
+}
