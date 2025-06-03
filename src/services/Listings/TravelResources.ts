@@ -1,10 +1,10 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 export type TravelResource = {
   id: number;
   title: string;
   type: string;
-  description: string | null;
+  short_description: string | null;
   content: string | null;
   image_url: File | string | null;
   published?: "1" | "0";
@@ -13,8 +13,8 @@ export type TravelResource = {
 };
 
 
-export const getTravelResourceWithPagination = async (page: number = 1, limit: number = 10): Promise<{
-  guides: TravelResource[];
+export const getTravelResourceWithPagination = async (resource: string ,page: number = 1, limit: number = 10): Promise<{
+  travel_resource: TravelResource[];
   pagination: {
     page: number;
     limit: number;
@@ -22,13 +22,13 @@ export const getTravelResourceWithPagination = async (page: number = 1, limit: n
     totalRecords: number;
   };
 }> => {
-  const response = await fetch(`${apiConfig.baseurl}travel-resources/paginated/?page=${page}&limit=${limit}`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}travel-resources/paginated/?page=${page}&limit=${limit}&filter=${resource}`);
+  if (response.status !== 200) {
     throw new Error('Failed to fetch Guides with pagination');
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
-    guides: data.guides,
+    travel_resource: data.travel_resources,
     pagination: data.pagination,
   };
 }
@@ -51,17 +51,13 @@ export const addResource = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}travel-resources/`, {
-    method: 'POST',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.post(`${base_url}travel-resources/`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 201) {
     throw new Error('Failed to add Guides');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Updates an existing TravelResource in the API
@@ -83,27 +79,35 @@ export const updateResource = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}travel-resources/${id}`, {
-    method: 'PUT',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.put(`${base_url}travel-resources/${id}`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('Failed to update Guides');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Deletes an TravelResource from the API
 export const deleteResource = async (id: number): Promise<void> => {
-  const response = await fetch(`${apiConfig.baseurl}travel-resources/${id}`, {
-    method: 'DELETE',
-    headers:apiConfig.headers,
-  });
+  const response = await api.delete(`${base_url}travel-resources/${id}`);
 
-  if (!response.ok) {
-    throw new Error('Failed to delete Guides');
+  if (response.status !== 200) {
+    throw new Error('Failed to delete resource');
   }
 };
+
+export const publishTravelResources = async(id: number, published: { published: string }): Promise<TravelResource> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}travel-resources/published/${id}`,data,{
+      headers:{
+        "Content-Type":"application/json"
+      }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish travel resource")
+    }
+
+    return response.data;
+}

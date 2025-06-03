@@ -3,7 +3,22 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PlusCircle, Loader, Pencil, Trash2, FileText, BookOpen, Wrench } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { getTravelResources, TravelResource, addResource, updateResource, deleteResource } from '@/services/dataService';
+import {
+  getTravelResourceWithPagination,
+  TravelResource,
+  addResource,
+  updateResource,
+  deleteResource,
+  publishTravelResources,
+} from "@/services/Listings/TravelResources";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -11,7 +26,7 @@ import ListingCard from '@/components/ListingCard';
 import { Badge } from "@/components/ui/badge";
 
 const ToolkitsPage = () => {
-  const [Toolkits, setToolkits] = useState<TravelResource[]>([]);
+  const [toolkits, setToolkits] = useState<TravelResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   // State to toggle between card and list view
@@ -32,19 +47,28 @@ const ToolkitsPage = () => {
     };
 
   useEffect(() => {
-    fetchToolkits();
+    fetchToolkits(pagination.page, pagination.limit);
   }, []);
 
 
-  const fetchToolkits = async () => {
+  const fetchToolkits = async (    
+    page: number,
+    limit: number,
+    resource: string = "toolkit"
+  ) => {
     try {
       setIsLoading(true);
-      const data = await getTravelResources();
-      const Toolkits = data.filter((resource) => resource.type === "toolkit");
-      setToolkits(Toolkits);
+      const {travel_resource, pagination} = await getTravelResourceWithPagination(resource,page,limit);
+      setToolkits(travel_resource);
+      setPagination({
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: pagination.totalPages,
+        totalRecords: pagination.totalRecords,
+      });
     } catch (error) {
-      console.error('Error fetching Toolkits:', error);
-      toast.error('Failed to load Toolkits');
+      console.error('Error fetching toolkits:', error);
+      toast.error('Failed to load toolkits');
     } finally {
       setIsLoading(false);
     }
@@ -56,10 +80,21 @@ const ToolkitsPage = () => {
   };
 
   const handleEdit = (id: number) => {
-    const toolkit = Toolkits.find((g) => g.id === id);
+    const toolkit = toolkits.find((g) => g.id === id);
     if (toolkit) {
       setCurrentToolkits(toolkit);
       setFormOpen(true);
+    }
+  };
+
+  const handlePublish = (id: number) => {
+    const toolkit = toolkits.find((f) => f.id === id);
+    const values: { published: string } = { published: "" };
+
+    if (toolkit) {
+      setCurrentToolkits(toolkit);
+      values.published = toolkit.published === "1" ? "0" : "1";
+      handlePublishedToolkit(values);
     }
   };
 
@@ -77,12 +112,12 @@ const ToolkitsPage = () => {
         ...values
       });
 
-      setToolkits(Toolkits.map(r => r.id === currentToolkits.id ? response : r));
+      setToolkits(toolkits.map(r => r.id === currentToolkits.id ? response : r));
       setFormOpen(false);
-      toast.success('Toolkits updated successfully');
+      toast.success('toolkits updated successfully');
     } catch (error) {
-      console.error('Error updating Toolkits:', error);
-      toast.error('Failed to update Toolkits');
+      console.error('Error updating toolkits:', error);
+      toast.error('Failed to update toolkits');
     } finally {
       setIsProcessing(false);
     }
@@ -94,11 +129,11 @@ const ToolkitsPage = () => {
     try {
       setIsProcessing(true);
       await deleteResource(toolkitsToDelete);
-      setToolkits(Toolkits.filter(r => r.id !== toolkitsToDelete));
-      toast.success('Toolkits deleted successfully');
+      setToolkits(toolkits.filter(r => r.id !== toolkitsToDelete));
+      toast.success('toolkits deleted successfully');
     } catch (error) {
-      console.error('Error deleting Toolkits:', error);
-      toast.error('Failed to delete Toolkits');
+      console.error('Error deleting toolkits:', error);
+      toast.error('Failed to delete toolkits');
     } finally {
       setIsProcessing(false);
         setIsDeleteDialogOpen(false);
@@ -106,33 +141,42 @@ const ToolkitsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-          switch (status) {
-          case '1':
-              return <Badge className="bg-blue-500">Published</Badge>;
-          case '0':
-              return <Badge className="bg-yellow-500">Unpublished</Badge>;
-          default:
-              return <Badge>{status}</Badge>;
-          }
-      };
+    const handlePublishedToolkit = async (published: { published: string }) => {
+      if (!currentToolkits) return;
+      try {
+        const response = await publishTravelResources(currentToolkits.id, {
+          ...published,
+        });
+        if (!response) {
+          toast.error("Failed to publish map");
+        } else {
+          toast.success("toolkit updated successfully");
+        }
+        fetchToolkits(pagination.page, pagination.limit);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to update toolkit published");
+      } finally {
+        setCurrentToolkits(null);
+      }
+    };
+
   const additionalFields = [
-    {name:"title", label:"Title", type:"text", placeholder:"Enter Toolkits title", required:true},
-    {name:"published", label:"Published", type:"switch", placeholder:"Enter Toolkits content",required:false},
-    {name:"description", label:"Description", type:"textarea", placeholder:"Enter Toolkits description",required:true},
-    {name:"content", label:"Content", type:"textarea", placeholder:"Enter Toolkits content",required:true},
+    {name:"title", label:"Title", type:"text", placeholder:"Enter toolkits title", required:true},
+    {name:"short_description", label:"Description", type:"textarea", placeholder:"Enter toolkits description",required:true},
+    {name:"content", label:"Content", type:"textarea", placeholder:"Enter toolkits content",required:true},
     {name:"image", label:"Image URL", type:"file", placeholder:"https://example.com/image.jpg",required:false},
   ]
 
   const handleFormSubmit = async (values) => {
     try{
-        const newToolkits: TravelResource = await addResource(values);
-        setToolkits([...Toolkits, newToolkits]);
+        const newToolkits = await addResource({...values,type:"toolkit"});
+        fetchToolkits(pagination.page,pagination.limit)
         setFormOpen(false);
-        toast.success('Toolkits added successfully');
+        toast.success('toolkits added successfully');
     } catch (error) {
-        console.error('Error adding Toolkits:', error);
-        toast.error('Failed to add Toolkits');
+        console.error('Error adding toolkits:', error);
+        toast.error('Failed to add toolkits');
         throw error;
     }
   };
@@ -141,9 +185,9 @@ const ToolkitsPage = () => {
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Travel Toolkits</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Travel toolkits</h1>
           <p className="text-muted-foreground mt-1">
-            Manage Toolkits for travelers
+            Manage toolkits for travelers
           </p>
         </div>
         <Button 
@@ -151,7 +195,7 @@ const ToolkitsPage = () => {
           onClick={handleAdd}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Toolkits
+          Add New toolkits
         </Button>
         {/* Toggle between listings */}
         <div className='flex justify-end'>
@@ -178,29 +222,31 @@ const ToolkitsPage = () => {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
         </div>
-      ) : Toolkits.length === 0 ? (
+      ) : toolkits.length === 0 ? (
         <div className="text-center p-12 border rounded-lg bg-muted/30">
-          <h3 className="text-xl font-semibold mb-2">No Toolkits found</h3>
+          <h3 className="text-xl font-semibold mb-2">No toolkits found</h3>
           <p className="text-muted-foreground mb-4">
-            Get started by adding your first travel Toolkits
+            Get started by adding your first travel toolkits
           </p>
           <Button onClick={handleAdd}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Toolkits
+            Add toolkits
           </Button>
         </div>
       ) : isCardView ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Toolkits.map((toolkit) => (
+          {toolkits.map((toolkit) => (
             <ListingCard
               key={toolkit.id}
               id={toolkit.id}
               title={toolkit.title}
-              description={toolkit.description || toolkit.content || ""}
-              image={typeof toolkit.image_url === "string" ? toolkit.image_url : toolkit.image_url ? URL.createObjectURL(toolkit.image_url) : ""}
+              description={toolkit.short_description || ""}
+              image={typeof toolkit.image_url === "string" ? toolkit.image_url :  ""}
               badges={[ Number(toolkit.published) === 1 ? 'Published' : 'Unpublished' ]}
-              price={ 0} // Provide a default price if not available
+              price={null}
+              published={toolkit.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -213,19 +259,33 @@ const ToolkitsPage = () => {
                         <TableHead>Title</TableHead>
                         <TableHead>Content</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {Toolkits.map((toolkit) => (
+                    {toolkits.map((toolkit) => (
                         <TableRow key={toolkit.id}>
                             <TableCell className="font-medium">{toolkit.title}</TableCell>
                             <TableCell>{toolkit.content.slice(0, 30)}...</TableCell>
                             <TableCell>{formatDate(toolkit.created_at)}</TableCell>
-                            <TableCell>{getStatusBadge(toolkit.published)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
+                                  <div className="flex justify-end">
+                                      <button
+                                        onClick={handlePublish.bind(null, map.id)}
+                                        className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                                          map.published === "1"
+                                            ? "bg-blue-500"
+                                            : "bg-gray-300"
+                                        }`}
+                                      >
+                                        <div
+                                          className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                                            map.published === "1" ? "translate-x-6" : ""
+                                          }`}
+                                        ></div>
+                                      </button>
+                                    </div>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -252,25 +312,63 @@ const ToolkitsPage = () => {
             </Table>
         </div>
     )}
+{/* Pagination */}
+      <Pagination className="mt-6">
+        {toolkits.length > 0 && (
+          <div className="text-sm text-muted-foreground mb-2">
+            Showing page {pagination.page} of {pagination.totalPages}
+          </div>
+        )}
+        <PaginationContent>
+          <PaginationPrevious
+            onClick={
+              pagination.page > 1
+                ? () => handlePageChange(pagination.page - 1)
+                : undefined
+            }
+            className={
+              pagination.page <= 1 ? "opacity-50 pointer-events-none" : ""
+            }
+          />
+          {[...Array(pagination.totalPages)].map((_, idx) => (
+            <PaginationItem key={idx}>
+              <PaginationLink
+                isActive={pagination.page === idx + 1}
+                onClick={() => handlePageChange(idx + 1)}
+              >
+                {idx + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationNext
+            onClick={() => handlePageChange(pagination.page + 1)}
+            className={
+              pagination.page >= pagination.totalPages
+                ? "opacity-50 pointer-events-none"
+                : ""
+            }
+          />
+        </PaginationContent>
+      </Pagination>
 
-      {/* Add Toolkits Dialog */}
+      {/* Add toolkits Dialog */}
       {!currentToolkits && (
       <ListingForm
         open={formOpen}
         onOpenChange={setFormOpen}
-        title="Add New Toolkits"
+        title="Add New toolkits"
         fields={additionalFields}
         initialValues={{title:"",description:"",content:"",image_url:"",type:"toolkit"}}
         onSubmit={handleFormSubmit}
       />
       )}
 
-      {/* Edit Toolkits Dialog */}
+      {/* Edit toolkits Dialog */}
       {currentToolkits && (
         <ListingForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          title={`Update Toolkits: ${currentToolkits.title}`}
+          title={`Update toolkits: ${currentToolkits.title}`}
           fields={additionalFields}
           initialValues={currentToolkits}
           onSubmit={handleUpdate}
@@ -282,7 +380,7 @@ const ToolkitsPage = () => {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Toolkits"
+        title="Delete toolkits"
         description={`Are you sure you want to delete the Toolkit? This action cannot be undone.`}
         isDeleting={isProcessing}
       />

@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/sonner';
-import apiConfig from '@/services/apiConfig';
+import {api, base_url} from '@/services/apiConfig';
 
 interface User {
   // id: number;
@@ -53,17 +53,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
 
-      const response = await fetch(`${apiConfig.baseurl}users/login`,{
-        method:"POST",
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({email,password})
-      })
+      const response = await api.post(`${base_url}users/login`,{email,password});
+      console.log(response)
       // Hardcoded authentication for demo
       // email === 'admin@example.com' && password === 'password'
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = await response.data;
         const user: User = {
           // id: 1,
           email,

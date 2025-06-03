@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PlusCircle, Loader, Pencil, Trash2, FileText, BookOpen, Wrench } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { getTravelResources, TravelResource, addResource, updateResource, deleteResource } from '@/services/dataService';
+import { getTravelResourceWithPagination, TravelResource, addResource, updateResource, deleteResource,publishTravelResources } from '@/services/Listings/TravelResources';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/pagination";
 
 const ChecklistsPage = () => {
-  const [Checklists, setChecklists] = useState<TravelResource[]>([]);
+  const [checklists, setChecklists] = useState<TravelResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   // State to toggle between card and list view
@@ -44,15 +44,14 @@ const ChecklistsPage = () => {
   }, [pagination.page, pagination.limit]);
 
 
-  const fetchChecklists = async (page: number, limit: number) => {
+  const fetchChecklists = async (page: number, limit: number,resource:string = "checklist") => {
     try {
       setIsLoading(true);
-      const data = await getTravelResources();
-      const Checklists = data.filter((resource) => resource.type === "checklist");
-      setChecklists(Checklists);
+      const {travel_resource,pagination} = await getTravelResourceWithPagination(resource,page,limit);
+      setChecklists(travel_resource);
     } catch (error) {
-      console.error('Error fetching Checklists:', error);
-      toast.error('Failed to load Checklists');
+      console.error('Error fetching checklists:', error);
+      toast.error('Failed to load checklists');
     } finally {
       setIsLoading(false);
     }
@@ -64,13 +63,23 @@ const ChecklistsPage = () => {
   };
 
   const handleEdit = (id: number) => {
-    const checklist = Checklists.find((g) => g.id === id);
+    const checklist = checklists.find((g) => g.id === id);
     if (checklist) {
       setCurrentChecklists(() => checklist);
       setFormOpen(true);
     }
   };
 
+  const handlePublish = (id: number) => {
+    const checklist = checklists.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (checklist) { 
+      setCurrentChecklists(checklist)
+      values.published = checklist.published === "1" ? "0" : "1";
+      handlePublishedChecklist(values);
+    }
+  };
   const handleDelete = (id: number) => {
     setToolkitsToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -85,12 +94,12 @@ const ChecklistsPage = () => {
         ...values
       });
 
-      setChecklists(Checklists.map(r => r.id === currentChecklists.id ? response : r));
+      setChecklists(checklists.map(r => r.id === currentChecklists.id ? response : r));
       setFormOpen(false);
-      toast.success('Checklists updated successfully');
+      toast.success('checklists updated successfully');
     } catch (error) {
-      console.error('Error updating Checklists:', error);
-      toast.error('Failed to update Checklists');
+      console.error('Error updating checklists:', error);
+      toast.error('Failed to update checklists');
     } finally {
       setIsProcessing(false);
     }
@@ -102,11 +111,11 @@ const ChecklistsPage = () => {
     try {
       setIsProcessing(true);
       await deleteResource(checklistsToDelete);
-      setChecklists(Checklists.filter(r => r.id !== checklistsToDelete));
-      toast.success('Checklists deleted successfully');
+      setChecklists(checklists.filter(r => r.id !== checklistsToDelete));
+      toast.success('checklists deleted successfully');
     } catch (error) {
-      console.error('Error deleting Checklists:', error);
-      toast.error('Failed to delete Checklists');
+      console.error('Error deleting checklists:', error);
+      toast.error('Failed to delete checklists');
     } finally {
       setIsProcessing(false);
         setIsDeleteDialogOpen(false);
@@ -114,49 +123,56 @@ const ChecklistsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-          switch (status) {
-          case '1':
-              return <Badge className="bg-blue-500">Published</Badge>;
-          case '0':
-              return <Badge className="bg-yellow-500">Unpublished</Badge>;
-          default:
-              return <Badge>{status}</Badge>;
-          }
-      };
-
 const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     fetchChecklists(newPage, pagination.limit);
   };
   const additionalFields = [
-    {name:"title", label:"Title", type:"text", placeholder:"Enter Checklists title", required:true},
-    {name:"published", label:"Published", type:"switch", placeholder:"Enter Checklists content",required:false},
-    {name:"description", label:"Description", type:"textarea", placeholder:"Enter Checklists description",required:true},
-    {name:"content", label:"Content", type:"textarea", placeholder:"Enter Checklists content",required:true},
+    {name:"title", label:"Title", type:"text", placeholder:"Enter checklists title", required:true},
+    {name:"short_description", label:"Description", type:"textarea", placeholder:"Enter checklists description",required:true},
+    {name:"content", label:"Content", type:"textarea", placeholder:"Enter checklists content",required:true},
     {name:"image", label:"Image URL", type:"file", placeholder:"https://example.com/image.jpg",required:false},
   ]
 
   const handleFormSubmit = async (values) => {
     try{
-        const newToolkits: TravelResource = await addResource(values);
-        setChecklists([...Checklists, newToolkits]);
+        const newToolkits = await addResource({...values,type:"checklist"});
+        fetchChecklists(pagination.page,pagination.limit)
         setFormOpen(false);
-        toast.success('Checklists added successfully');
+        toast.success('checklists added successfully');
     } catch (error) {
-        console.error('Error adding Checklists:', error);
-        toast.error('Failed to add Checklists');
+        console.error('Error adding checklists:', error);
+        toast.error('Failed to add checklists');
         throw error;
     }
   };
+
+  const handlePublishedChecklist = async(published: { published: string })=>{
+    if(!currentChecklists) return;
+    try{
+      const response = await publishTravelResources(currentChecklists.id,{...published});
+      if(!response){
+          toast.error('Failed to publish checklist');
+      }else{
+        toast.success('checklist updated successfully');
+      }
+      fetchChecklists(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update checklist published');
+    }finally{
+      setCurrentChecklists(null)
+    }
+  }
 
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Travel Checklists</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Travel checklists</h1>
           <p className="text-muted-foreground mt-1">
-            Manage Checklists for travelers
+            Manage checklists for travelers
           </p>
         </div>
         <Button 
@@ -164,7 +180,7 @@ const handlePageChange = (newPage: number) => {
           onClick={handleAdd}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Checklists
+          Add New checklists
         </Button>
         {/* Toggle between listings */}
         <div className='flex justify-end'>
@@ -191,29 +207,31 @@ const handlePageChange = (newPage: number) => {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
         </div>
-      ) : Checklists.length === 0 ? (
+      ) : checklists.length === 0 ? (
         <div className="text-center p-12 border rounded-lg bg-muted/30">
-          <h3 className="text-xl font-semibold mb-2">No Checklists found</h3>
+          <h3 className="text-xl font-semibold mb-2">No checklists found</h3>
           <p className="text-muted-foreground mb-4">
-            Get started by adding your first travel Checklists
+            Get started by adding your first travel checklists
           </p>
           <Button onClick={handleAdd}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Checklists
+            Add checklists
           </Button>
         </div>
       ) : isCardView ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Checklists.map((checklist) => (
+          {checklists.map((checklist) => (
             <ListingCard
               key={checklist.id}
               id={checklist.id}
               title={checklist.title}
-              description={checklist.description || checklist.content || ""}
-              image={typeof checklist.image_url === "string" ? checklist.image_url : checklist.image_url ? URL.createObjectURL(checklist.image_url) : ""}
+              description={checklist.short_description || ""}
+              image={typeof checklist.image_url === "string" ? checklist.image_url :  ""}
               badges={[ Number(checklist.published) === 1 ? 'Published' : 'Unpublished' ]}
-              price={ 0} // Provide a default price if not available
+              price={ null} // Provide a default price if not available
+              published={checklist.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -226,19 +244,18 @@ const handlePageChange = (newPage: number) => {
                         <TableHead>Title</TableHead>
                         <TableHead>Content</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {Checklists.map((checklist) => (
+                    {checklists.map((checklist) => (
                         <TableRow key={checklist.id}>
                             <TableCell className="font-medium">{checklist.title}</TableCell>
                             <TableCell>{checklist.content.slice(0, 30)}...</TableCell>
                             <TableCell>{formatDate(checklist.created_at)}</TableCell>
-                            <TableCell>{getStatusBadge(checklist.published)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
+                                  
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -266,23 +283,52 @@ const handlePageChange = (newPage: number) => {
         </div>
     )}
 
-      {/* Add Checklists Dialog */}
+      {/* Pagination */}
+        <Pagination className="mt-6">
+          {checklists.length > 0 && (
+            <div className="text-sm text-muted-foreground mb-2">
+              Showing page {pagination.page} of {pagination.totalPages}
+            </div>
+          )}
+          <PaginationContent>
+            <PaginationPrevious
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+            />
+            {[...Array(pagination.totalPages)].map((_, idx) => (
+              <PaginationItem key={idx}>
+                <PaginationLink
+                  isActive={pagination.page === idx + 1}
+                  onClick={() => handlePageChange(idx + 1)}
+                >
+                  {idx + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationNext
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+            />
+          </PaginationContent>
+        </Pagination>
+
+      {/* Add checklists Dialog */}
       {!currentChecklists && (
       <ListingForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          title="Add New Checklists"
+          title="Add New checklists"
           fields={additionalFields}
           initialValues={{title:"",description:"",content:"",image_url:"",type:"checklist"}}
           onSubmit={handleFormSubmit}
         />
       )}
-      {/* Edit Checklists Dialog */}
+      {/* Edit checklists Dialog */}
       {currentChecklists && (
         <ListingForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          title={`Update Checklists: ${currentChecklists.title}`}
+          title={`Update checklists: ${currentChecklists.title}`}
           fields={additionalFields}
           initialValues={currentChecklists}
           onSubmit={handleUpdate}
@@ -294,7 +340,7 @@ const handlePageChange = (newPage: number) => {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Checklists"
+        title="Delete checklists"
         description={`Are you sure you want to delete the checklist? This action cannot be undone.`}
         isDeleting={isProcessing}
       />

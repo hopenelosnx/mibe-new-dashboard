@@ -1,10 +1,11 @@
-import apiConfig from '../apiConfig';
+import { string } from 'zod';
+import {api,base_url} from '../apiConfig';
 
 export interface Activity {
   id: number;
   name: string;
   published: string;
-  destination_id?: number;
+  destination_id: number | string;
   description?: string;
   price: number;
   duration?: string;
@@ -24,11 +25,11 @@ export const getActivitiesWithPagination = async (
       totalRecords: number;
   };
 }> => {
-  const response = await fetch(`${apiConfig.baseurl}activities/?page=${page}&limit=${limit}`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}activities/?page=${page}&limit=${limit}`);
+  if (response.status !== 200) {
     throw new Error('Failed to fetch activities');
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
     activities: data.activities,
     pagination: data.pagination,
@@ -43,15 +44,11 @@ export const addActivity = async (activity: Omit<Activity, 'id'>): Promise<Activ
       formData.append(key, value as string | Blob);
     }
   });
-  const response = await fetch(`${apiConfig.baseurl}activities/`, {
-    method: 'POST',
-    body: formData,
-    headers:apiConfig.headers,
-  });
-  if (!response.ok) {
+  const response = await api.post(`${base_url}activities/`, formData);
+  if (response.status !== 201) {
     throw new Error('Failed to add activity');
   }
-  return response.json();
+  return response.data;
 };
 
 export const updateActivity = async (id: number, activity: Partial<Activity>): Promise<Activity> => {
@@ -62,42 +59,31 @@ export const updateActivity = async (id: number, activity: Partial<Activity>): P
       formData.append(key, value as string | Blob);
     }
   });
-  const response = await fetch(`${apiConfig.baseurl}activities/${id}`, {
-    method: 'PUT',
-    body: formData,
-    headers:apiConfig.headers,
-  });
-  if (!response.ok) {
+  const response = await api.put(`${base_url}activities/${id}`, formData);
+  if (response.status !== 200) {
     throw new Error('Failed to update activity');
   }
-  return response.json();
+  return response.data;
 };
 
 export const deleteActivity = async (id: number): Promise<void> => {
-  const response = await fetch(`${apiConfig.baseurl}activities/${id}`, {
-    method: 'DELETE',
-    headers:apiConfig.headers,
-  });
-  if (!response.ok) {
+  const response = await api.delete(`${base_url}activities/${id}`);
+  if (response.status !== 200) {
     throw new Error('Failed to delete activity');
   }
 };
 
-export const uploadActivityImage = async (id: number, file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('image', file);
+export const publishActivity = async(id: number, published: { published: string }): Promise<Activity> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}activities/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish activity")
+    }
 
-  const response = await fetch(`${apiConfig.baseurl}activities/${id}/upload_image/`, {
-    method: 'POST',
-    body: formData,
-    headers:apiConfig.headers,
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to upload activity image');
-  }
-
-  const data = await response.json();
-  return data.image_url; // Assuming the API returns the image URL
-};
-
+    return response.data;
+}

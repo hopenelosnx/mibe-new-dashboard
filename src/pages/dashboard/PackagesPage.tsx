@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
-import { getPackagesWithPagination, Package, addPackage, updatePackage, deletePackage } from '@/services/Listings/Packages';
+import { getPackagesWithPagination, Package, addPackage, updatePackage, deletePackage, publishPackage, } from '@/services/Listings/Packages';
 import { getDestinations } from '@/services/Listings/Destinations';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -97,6 +97,17 @@ const PackagesPage = () => {
       setFormOpen(true);
     }
   };
+  
+  const handlePublish = (id: number) => {
+    const _package = packages.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (_package) { 
+      setCurrentPackage(_package)
+      values.published = _package.published === "1" ? "0" : "1";
+      handlePublishedPackage(values);
+    }
+  };
 
   const handleDelete = (id: number) => {
     setPackageToDelete(id);
@@ -144,6 +155,25 @@ const PackagesPage = () => {
     }
   };
 
+  const handlePublishedPackage = async(published: { published: string })=>{
+    if(!currentPackage) return;
+    try{
+      const response = await publishPackage(currentPackage.id,{...published});
+      if(!response){
+          toast.error('Failed to publish Package');
+      }else{
+        toast.success('Package updated successfully');
+      }
+      fetchPackages(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update Package published');
+    }finally{
+      setCurrentPackage(null)
+    }
+  }
+
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     fetchPackages(newPage, pagination.limit);
@@ -151,7 +181,6 @@ const PackagesPage = () => {
 
   const additionalFields = [
     { name: 'name', label: 'Travel Name', type: 'text', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false },
     { 
       name: 'destination_id', 
       label: 'Destination', 
@@ -267,7 +296,9 @@ const PackagesPage = () => {
                 'Duration': pkg.duration,
                 'Rating': pkg.rating ? `${pkg.rating}/5` : 'N/A'
               }}
+              published={pkg.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -283,7 +314,6 @@ const PackagesPage = () => {
               <TableHead>Travel Type</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Published</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -296,9 +326,22 @@ const PackagesPage = () => {
                 <TableCell>{_package.travel_type || 'N/A'}</TableCell>
                 <TableCell>{_package.rating || 'N/A'}</TableCell>
                 <TableCell>{getStatusBadge(_package.status=== 1 ? "Active":"Inactive")}</TableCell>
-                <TableCell>{getStatusBadge(_package.published)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,_package.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            _package.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              _package.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                     <Button
                       variant="outline"
                       size="sm"
@@ -348,8 +391,8 @@ const PackagesPage = () => {
         )}
         <PaginationContent>
           <PaginationPrevious
-            onClick={() => handlePageChange(pagination.page - 1)}
-            disabled={pagination.page <= 1}
+            onClick={pagination.page > 1 ? () => handlePageChange(pagination.page - 1) : undefined}
+            className={pagination.page <= 1 ? "disabled-class" : ""}
           />
           {[...Array(pagination.totalPages)].map((_, idx) => (
             <PaginationItem key={idx}>
@@ -362,8 +405,8 @@ const PackagesPage = () => {
             </PaginationItem>
           ))}
           <PaginationNext
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages}
+            className={pagination.page >= pagination.totalPages ? "disabled-class" : ""}
+            onClick={pagination.page < pagination.totalPages ? () => handlePageChange(pagination.page + 1) : undefined}
           />
         </PaginationContent>
       </Pagination>

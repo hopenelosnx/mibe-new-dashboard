@@ -15,7 +15,8 @@ import {
   getFacilitationServicesWithPagination, 
   addFacilitationService, 
   updateFacilitationService, 
-  deleteFacilitationService 
+  deleteFacilitationService,
+  publishFacilitation
 } from '@/services/Listings/facilitations';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -89,6 +90,17 @@ const FacilitationsPage = () => {
     }
   };
 
+  const handlePublish = (id: number) => {
+    const facilitation = services.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (facilitation) { 
+      setCurrentService(facilitation)
+      values.published = facilitation.published === "1" ? "0" : "1";
+      handlePublishedService(values);
+    }
+  };
+
   const handleDelete = (id: number) => {
     setServiceToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -140,9 +152,27 @@ const FacilitationsPage = () => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
     fetchServices(newPage, pagination.limit);
   };
+  
+  const handlePublishedService = async(published: { published: string })=>{
+    if(!currentService) return;
+    try{
+      const response = await publishFacilitation(currentService.id,{...published});
+      if(!response){
+          toast.error('Failed to publish facilitations');
+      }else{
+        toast.success('facilitations updated successfully');
+      }
+      fetchServices(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update facilitations published');
+    }finally{
+      setCurrentService(null)
+    }
+  }
   const additionalFields = [
     { name: 'name', label: 'Name', type: 'text', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false },
     { name: 'price', label: 'Price', type: 'number', required: true },
     { name: 'description', label: 'Description', type: 'textarea', required: true },
     { name: 'image', label: 'Image Url', type: 'file', required: true },
@@ -205,7 +235,7 @@ const FacilitationsPage = () => {
               key={service.id}
               id={service.id}
               title={service.name}
-              image={service.image_url}
+              image={typeof service.image_url === "string" ? service.image_url : ""}
               description={service.description}
               price={service.price}
               priceLabel="per service"
@@ -213,7 +243,9 @@ const FacilitationsPage = () => {
               details={{
                 'Type': 'Facilitation Service'
               }}
+              published={service.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -226,23 +258,35 @@ const FacilitationsPage = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {services.map((facilitation) => (
-                  <TableRow key={facilitation.id}>
-                    <TableCell className="font-medium">{facilitation.name}</TableCell>
-                    <TableCell>{facilitation.description.slice(0,20)}...</TableCell>
-                    <TableCell>${facilitation.price}</TableCell>
-                    <TableCell>{getStatusBadge(facilitation.published)}</TableCell>
+                {services.map((service) => (
+                  <TableRow key={service.id}>
+                    <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell>{service.description.slice(0,20)}...</TableCell>
+                    <TableCell>${service.price}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,service.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            service.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              service.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={handleEdit.bind(null, facilitation.id)}
+                          onClick={handleEdit.bind(null, service.id)}
                           className="bg-travel-100 text-travel-800 border-travel-200 hover:bg-travel-200"
                         >
                           <Pencil className="h-4 w-4 mr-1" />
@@ -251,7 +295,7 @@ const FacilitationsPage = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={handleDelete.bind(null, facilitation.id)}
+                          onClick={handleDelete.bind(null, service.id)}
                           className="bg-red-100 text-red-800 border-travel-200 hover:bg-red-200"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />

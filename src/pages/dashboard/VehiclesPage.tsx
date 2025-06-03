@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
 // import { getVehicles, Vehicle, addVehicle, updateVehicle, deleteVehicle } from '@/services/dataService';
-import { getVehicles, getVehiclesWithPagination,Vehicle, addVehicle, updateVehicle, deleteVehicle } from '@/services/Listings/Vehicles';
+import { getVehicles, getVehiclesWithPagination,Vehicle, addVehicle, updateVehicle, deleteVehicle,publishVehicle } from '@/services/Listings/Vehicles';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -77,11 +77,23 @@ const VehiclesPage = () => {
   const handleEdit = (id: number) => {
     const vehicle = vehicles.find(v => v.id === id);
     if (vehicle) {
-      setCurrentVehicle(vehicle);
+      setCurrentVehicle({
+        ...vehicle,
+        status: String(vehicle.status)
+      });
       setFormOpen(true);
     }
   };
-
+  const handlePublish = (id: number) => {
+    const vehicle = vehicles.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (vehicle) { 
+      setCurrentVehicle(vehicle)
+      values.published = vehicle.published === "1" ? "0" : "1";
+      handlePublishedVehicle(values);
+    }
+  };
   const handleDelete = (id: number) => {
     setVehicleToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -138,10 +150,30 @@ const VehiclesPage = () => {
     fetchVehicles(newPage, pagination.limit);
   };
 
+  const handlePublishedVehicle = async(published: { published: string })=>{
+    if(!currentVehicle) return;
+    try{
+      console.log(currentVehicle.id)
+      const response = await publishVehicle(currentVehicle.id,{...published});
+      if(!response){
+          toast.error('Failed to publish flight');
+      }else{
+        toast.success('Flight updated successfully');
+      }
+      fetchVehicles(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update flight published');
+    }finally{
+      setCurrentVehicle(null)
+    }
+  }
+  
+
   const additionalFields = [
     { name: 'name', label: 'Name', type: 'text', required: true },
     { name: 'capacity', label: 'Capacity', type: 'number', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false },
     { 
       name: 'type', 
       label: 'Type',
@@ -255,8 +287,8 @@ const VehiclesPage = () => {
               key={vehicle.id}
               id={vehicle.id}
               title={vehicle.name}
-              image={vehicle.image_url}
-              description={vehicle.description}
+              image={vehicle.image_url || ""}
+              description={vehicle.type}
               price={vehicle.price_per_day}
               priceLabel="per day"
               badges={[vehicle.type, Number(vehicle.status) === 1 ? 'Available' : 'Unavailable']}
@@ -265,7 +297,9 @@ const VehiclesPage = () => {
                 'Transmission': vehicle.transmission || 'N/A',
                 'Fuel': vehicle.fuel_type || 'N/A'
               }}
+              published={vehicle.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -280,7 +314,6 @@ const VehiclesPage = () => {
               <TableHead>Price</TableHead>
               <TableHead>Transmission</TableHead>
               <TableHead>Capacity</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -292,9 +325,22 @@ const VehiclesPage = () => {
                 <TableCell>${vehicle.price_per_day}</TableCell>
                 <TableCell>{vehicle.transmission || 'N/A'}</TableCell>
                 <TableCell>{vehicle.capacity}</TableCell>
-                <TableCell>{getStatusBadge(vehicle.published)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                     <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,vehicle.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            vehicle.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              vehicle.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                     <Button
                       variant="outline"
                       size="sm"

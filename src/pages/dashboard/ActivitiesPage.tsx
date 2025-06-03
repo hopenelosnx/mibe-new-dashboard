@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
-import { getActivitiesWithPagination, Activity, addActivity, updateActivity, deleteActivity } from '@/services/Listings/Activities';
+import { getActivitiesWithPagination, Activity, addActivity, updateActivity, deleteActivity, publishActivity } from '@/services/Listings/Activities';
 import { getDestinations, Destination} from '@/services/Listings/Destinations';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -59,6 +59,7 @@ const ActivitiesPage = () => {
     try {
       setIsLoading(true);
       const {activities, pagination: newPagination } = await getActivitiesWithPagination(page, limit);
+      console.log(activities);
       setActivities(activities);
       setPagination({
         page: newPagination.page,
@@ -96,8 +97,22 @@ const ActivitiesPage = () => {
   const handleEdit = (id: number) => {
     const activity = activities.find(a => a.id === id);
     if (activity) {
-      setCurrentActivity(activity);
+      setCurrentActivity({
+        ...activity,
+        destination_id:String(activity.destination_id)
+      });
       setFormOpen(true);
+    }
+  };
+  
+  const handlePublish = (id: number) => {
+    const activity = activities.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (activity) { 
+      setCurrentActivity(activity)
+      values.published = activity.published === "1" ? "0" : "1";
+      handlePublishedActivity(values);
     }
   };
 
@@ -165,9 +180,27 @@ const ActivitiesPage = () => {
     fetchActivities(newPage, pagination.limit);
   };
 
+  const handlePublishedActivity = async(published: { published: string })=>{
+    if(!currentActivity) return;
+    try{
+      console.log(currentActivity.id)
+      const response = await publishActivity(currentActivity.id,{...published});
+      if(!response){
+          toast.error('Failed to publish activity');
+      }else{
+        toast.success('activity updated successfully');
+      }
+      fetchActivities(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update activity published');
+    }finally{
+      setCurrentActivity(null)
+    }
+  }
   const additionalFields = [
     { name: 'name', label: 'Name', type: 'text', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false },
     { name: 'price', label: 'Price', type: 'number', required: true },
     { name: 'description', label: 'Description', type: 'textarea', required: true },
     { name: 'image', label: 'Image URL', type: 'file', required: false },
@@ -245,6 +278,7 @@ const ActivitiesPage = () => {
             <ListingCard
               key={activity.id}
               id={activity.id}
+              published={activity.published}
               title={activity.name}
               image={typeof activity.image_url === 'string' ? activity.image_url : ''}
               description={activity.description}
@@ -256,6 +290,7 @@ const ActivitiesPage = () => {
               }}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onPublish={handlePublish}
             />
           ))}
         </div>
@@ -269,7 +304,6 @@ const ActivitiesPage = () => {
                   <TableHead>Price</TableHead>
                   <TableHead>Destination</TableHead>
                   <TableHead>Duration</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -281,9 +315,22 @@ const ActivitiesPage = () => {
                     <TableCell>${activity.price}</TableCell>
                     <TableCell>{activity.dest_name || 'N/A'}</TableCell>
                     <TableCell>{activity.duration}</TableCell>
-                    <TableCell>{getStatusBadge(activity.published)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,activity.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            activity.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              activity.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                         <Button
                           variant="outline"
                           size="sm"
@@ -320,8 +367,8 @@ const ActivitiesPage = () => {
         )}
         <PaginationContent>
           <PaginationPrevious
-            onClick={() => handlePageChange(pagination.page - 1)}
-            disabled={pagination.page <= 1}
+            onClick={pagination.page > 1 ? () => handlePageChange(pagination.page - 1) : undefined}
+            className={pagination.page <= 1 ? "disabled-class" : ""}
           />
           {[...Array(pagination.totalPages)].map((_, idx) => (
             <PaginationItem key={idx}>
@@ -334,8 +381,8 @@ const ActivitiesPage = () => {
             </PaginationItem>
           ))}
           <PaginationNext
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages}
+              className={pagination.page >= pagination.totalPages ? "disabled-class" : ""}
+              onClick={pagination.page < pagination.totalPages ? () => handlePageChange(pagination.page + 1) : undefined}
           />
         </PaginationContent>
       </Pagination>

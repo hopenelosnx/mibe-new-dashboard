@@ -1,4 +1,4 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 export interface Facilitation{
     id: number;
@@ -10,11 +10,11 @@ export interface Facilitation{
 }
 
 export const getFacilitationServices = async (): Promise<Facilitation[]> => {
-    const response = await fetch(`${apiConfig.baseurl}facilitations/`);
-    if (!response.ok) {
+    const response = await api.get(`${base_url}facilitations/`);
+    if (response.status !== 200) {
         throw new Error("Failed to fetch facilitations");
     }
-    return response.json();
+    return response.data;
 };
 
 
@@ -30,13 +30,11 @@ export const getFacilitationServicesWithPagination = async (
         totalRecords: number;
     };
 }> => {
-    const response = await fetch(
-        `${apiConfig.baseurl}facilitations/?page=${page}&limit=${limit}`
-    );
-    if (!response.ok) {
+    const response = await api.get(`${base_url}facilitations/?page=${page}&limit=${limit}`);
+    if (response.status !== 200) {
         throw new Error("Failed to fetch facilitations with pagination");
     }
-    const data = await response.json();
+    const data = await response.data;
     return {
         facilitations: data.facilitations,
         pagination: data.pagination,
@@ -60,16 +58,12 @@ export const addFacilitationService = async (facilitation: Omit<Facilitation, 'i
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}facilitations/`, {
-        method: "POST",
-        body: formData,
-        headers:apiConfig.headers,
-    });
+    const response = await api.post(`${base_url}facilitations/`, formData);
 
-    if (!response.ok) {
+    if (response.status !== 201) {
         throw new Error("Failed to add facilitation");
     }
-    return response.json();
+    return response.data;
 };
 
 
@@ -90,25 +84,33 @@ export const updateFacilitationService = async (id: number, facilitation: Omit<F
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}facilitations/${id}/`, {
-        method: "PUT",
-        body: formData,
-        headers:apiConfig.headers,
-    });
-
-    if (!response.ok) {
+    const response = await api.put(`${base_url}facilitations/${id}/`, formData);
+    if (response.status !== 200) {
         throw new Error("Failed to update facilitation");
     }
-    return response.json();
+    return response.data;
 };
 
 export const deleteFacilitationService = async (id: number): Promise<void> => {
-    const response = await fetch(`${apiConfig.baseurl}facilitations/${id}/`, {
-        method: "DELETE",
-        headers:apiConfig.headers,
-    });
+    const response = await api.delete(`${base_url}facilitations/${id}/`);
 
-    if (!response.ok) {
+    if (response.status !== 200) {
         throw new Error("Failed to delete facilitation");
     }
 };
+
+
+export const publishFacilitation = async(id: number, published: { published: string }): Promise<Facilitation> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}facilitations/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish facilitation")
+    }
+
+    return response.data;
+}

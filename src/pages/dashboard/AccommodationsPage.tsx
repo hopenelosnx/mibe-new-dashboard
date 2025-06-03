@@ -8,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
-import { getAccommodationsWithPagination, Accommodation, addAccommodation, updateAccommodation, deleteAccommodation } from '@/services/Listings/Accommodation';
+import { getAccommodationsWithPagination, Accommodation, addAccommodation, updateAccommodation, deleteAccommodation, publishAccommodation } from '@/services/Listings/Accommodation';
 import { getDestinations, Destination} from '@/services/Listings/Destinations';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -58,6 +58,7 @@ const AccommodationsPage = () => {
     setIsLoading(true);
     try {
       const {accommodations, pagination} = await getAccommodationsWithPagination(page, limit);
+      console.log(accommodations)
       setAccommodations(accommodations || []);
       setPagination({
         page: pagination.page,
@@ -96,8 +97,22 @@ const AccommodationsPage = () => {
   const handleEdit = (id: number) => {
     const accommodation = accommodations.find(a => a.id === id);
     if (accommodation) {
-      setCurrentAccommodation(()=>accommodation);
+      setCurrentAccommodation({
+        ...accommodation,
+        destination_id: String(accommodation.destination_id),
+        availability: String(accommodation.availability),
+      });
       setFormOpen(true);
+    }
+  };
+  const handlePublish = (id: number) => {
+    const acommodation = accommodations.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (acommodation) { 
+      setCurrentAccommodation(acommodation)
+      values.published = acommodation.published === "1" ? "0" : "1";
+      handlePublishedAccommodation(values);
     }
   };
 
@@ -137,9 +152,10 @@ const AccommodationsPage = () => {
       fetchAccommodations(pagination.page, pagination.limit); // Refresh the list after adding
       toast.success("Accommodations updated successfully");
     }catch(error){
-      console.error('Error updating flight:', error);
-      toast.error('Failed to update flight');
+      console.error('Error updating Accommodation:', error);
+      toast.error('Failed to update Accommodation');
     }finally{
+      setCurrentAccommodation(null)
       setIsProcessing(false)
     }
   }
@@ -163,9 +179,26 @@ const AccommodationsPage = () => {
     fetchAccommodations(newPage, pagination.limit);
   };
 
+  const handlePublishedAccommodation = async(published: { published: string })=>{
+    if(!currentAccommodation) return;
+    try{
+      const response = await publishAccommodation(currentAccommodation.id,{...published});
+      if(!response){
+          toast.error('Failed to publish accommodation');
+      }else{
+        toast.success('accommodation updated successfully');
+      }
+      fetchAccommodations(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update accommodation published');
+    }finally{
+      setCurrentAccommodation(null)
+    }
+  }
   const additionalFields = [
     { name: 'name', label: 'Accommodation Name', type: 'text', required: true },
-    { name: 'published', label: 'Is Publish', type: 'switch', required: false },
     { name: 'description', label: 'Description', type: 'text', required: true },
     { name: 'type', label: 'Accommodation Type', type: 'text', required: true },
     { name: 'rating', label: 'Rating (1-5)', type: 'number', required: false },
@@ -255,7 +288,7 @@ const AccommodationsPage = () => {
               key={accommodation.id}
               id={accommodation.id}
               title={accommodation.name}
-              image={accommodation.image_url}
+              image={typeof accommodation.image_url === "string" ? accommodation.image_url:""}
               description={accommodation.description}
               price={accommodation.price_per_night}
               priceLabel="per night"
@@ -264,7 +297,9 @@ const AccommodationsPage = () => {
                 'Type': accommodation.type,
                 'Rating': accommodation.rating ? `${accommodation.rating}/5` : 'N/A'
               }}
+              published={accommodation.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -279,7 +314,6 @@ const AccommodationsPage = () => {
                   <TableHead>Price</TableHead>
                   <TableHead>Amenities</TableHead>
                   <TableHead>Rating</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -291,9 +325,22 @@ const AccommodationsPage = () => {
                     <TableCell>${accommodation.price_per_night}</TableCell>
                     <TableCell>{accommodation.amenities ? `${accommodation.amenities.slice(0, 20)}...` : 'N/A'}</TableCell>
                     <TableCell>{accommodation.rating || 'N/A'}</TableCell>
-                    <TableCell>{getStatusBadge(accommodation.published)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,accommodation.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            accommodation.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              accommodation.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                         <Button
                           variant="outline"
                           size="sm"

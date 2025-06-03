@@ -304,7 +304,7 @@ const DashboardSidebar = () => {
         <SidebarHeader className="flex items-center justify-between p-4 h-16">
           <div className={cn("flex items-center", collapsed && "justify-center")}>
             <Plane className="h-6 w-6 text-sidebar-accent" />
-            {!collapsed && <span className="ml-2 font-bold text-lg">TravelLister</span>}
+            {!collapsed && <span className="ml-2 font-bold text-lg">Mibe's Travel</span>}
           </div>
           <Button 
             variant="ghost" 

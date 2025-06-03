@@ -1,27 +1,28 @@
-import apiConfig from '../apiConfig';
+import {api,base_url} from '../apiConfig';
 
 // Interface representing an Accommodation object
 export interface Accommodation {
   id: number; // Unique identifier for the accommodation
   name: string; // Name of the accommodation
-  destination_id?: number; // Optional ID of the destination
+  destination_id?: number | string; // Optional ID of the destination
   type: string; // Type of accommodation (e.g., hotel, apartment)
-  availability: number; // Number of available units
+  availability: number | string; // Number of available units
   published: string; // Indicates if the accommodation is published
   price_per_night: number; // Price per night for the accommodation
   description?: string; // Optional description of the accommodation
   amenities?: string; // Optional amenities provided
-  image_url?: string; // Optional URL of the accommodation's image
+  dest_name?: string;
+  image_url?: File | string; // Optional URL of the accommodation's image
   rating?: number; // Optional rating of the accommodation
 }
 
 // Fetches a list of accommodations from the API
 export const getAccommodations = async (): Promise<Accommodation[]> => {
-  const response = await fetch(`${apiConfig.baseurl}accommodations/`);
-  if (!response.ok) {
+  const response = await api(`${base_url}accommodations/`);
+  if (response.status !== 200) {
     throw new Error('Failed to fetch accommodations');
   }
-  return response.json();
+  return response.data;
 };
 
 export const getAccommodationsWithPagination = async (page: number = 1, limit: number = 10): Promise<{
@@ -33,11 +34,11 @@ export const getAccommodationsWithPagination = async (page: number = 1, limit: n
     totalRecords: number;
   };
 }> => {
-  const response = await fetch(`${apiConfig.baseurl}accommodations/?page=${page}&limit=${limit}`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}accommodations/paginated/?page=${page}&limit=${limit}`);
+  if (response.status !== 200) {
     throw new Error('Failed to fetch accommodations with pagination');
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
     accommodations: data.accommodations,
     pagination: data.pagination,
@@ -51,9 +52,7 @@ export const addAccommodation = async (
   const formData = new FormData();
 
   // Append the image URL if provided
-  if (accommodation.image_url) {
-    formData.append('image', accommodation.image_url);
-  }
+  formData.append('image', accommodation.image_url);
 
   // Append other fields to the form data
   Object.entries(accommodation).forEach(([key, value]) => {
@@ -62,17 +61,13 @@ export const addAccommodation = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}accommodations/`, {
-    method: 'POST',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.post(`${base_url}accommodations/`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 201) {
     throw new Error('Failed to add accommodation');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Updates an existing accommodation in the API
@@ -82,10 +77,8 @@ export const updateAccommodation = async (
 ): Promise<Accommodation> => {
   const formData = new FormData();
 
-  // Append the image URL if provided
-  if (accommodation.image_url) {
-    formData.append('image', accommodation.image_url);
-  }
+  // Append the image URL if provided]
+  formData.append('image', accommodation.image_url as File);
 
   // Append other fields to the form data
   Object.entries(accommodation).forEach(([key, value]) => {
@@ -94,27 +87,34 @@ export const updateAccommodation = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}accommodations/${id}`, {
-    method: 'PUT',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.put(`${base_url}accommodations/${id}`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('Failed to update accommodation');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Deletes an accommodation from the API
 export const deleteAccommodation = async (id: number): Promise<void> => {
-  const response = await fetch(`${apiConfig.baseurl}accommodations/${id}`, {
-    method: 'DELETE',
-    headers:apiConfig.headers,
-  });
+  const response = await api.delete(`${base_url}accommodations/${id}`);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('Failed to delete accommodation');
   }
 };
+
+export const publishAccommodation = async(id: number, published: { published: string }): Promise<Accommodation> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}accommodations/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        throw new Error("Failed to publish acommodations")
+    }
+
+    return response.data;
+}
