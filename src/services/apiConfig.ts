@@ -26,4 +26,3 @@ api.interceptors.response.use(
         return error;
     }
 )
-
