@@ -1,23 +1,25 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Lead, LeadReply, getLeads, addLeadReply } from '@/services/dataService';
+import { Lead, getLeads, addLeadReply } from '@/services/dataService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader, Search, MessageSquare, Mail, Divide } from 'lucide-react';
+import { Loader, Search, Mail,} from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { format } from 'date-fns';
 import { getFlights, Flight, addFlight, updateFlight, deleteFlight } from '@/services/dataService';
  import ListingCard from '@/components/ListingCard'; // Assuming you have a ListingCard component for card view
  import { ListingForm } from '@/components/forms/ListingForm';
  import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog'; 
- import { PlusCircle} from 'lucide-react';
+ import { PlusCircle,Eye, Plus,Plane, Target ,DollarSign, Users, Star, XCircle, Edit, Trash2} from 'lucide-react';
+import { TabsContent, Tabs, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const LeadsPage = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -36,6 +38,14 @@ const LeadsPage = () => {
   const [currentFlight, setCurrentFlight] = useState<Flight | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [flightToDelete, setFlightToDelete] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [activeTab, setActiveTab] = useState('list');
+  const [leadsSubTab, setLeadsSubTab] = useState('list');
+  // const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
+  const [isEmailAllModalOpen, setIsEmailAllModalOpen] = useState(false);
+  
+  
 
 
 
@@ -94,6 +104,52 @@ const handleAdd = () => {
     }
   };
 
+ const handleViewListing = (id: number) => {
+    console.log(`Viewing listing: ${id}`);
+  };
+
+  const handleEditListing = (id: number) => {
+    console.log(`Editing listing: ${id}`);
+  };
+
+  const handleDeleteListing = (id: number) => {
+    console.log(`Deleting listing: ${id}`);
+  };
+
+const renderListingCard = (item: any, type: string) => (
+    <Card key={item.id} className="hover:shadow-lg transition-shadow">
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg">{item.title}</CardTitle>
+          <Badge variant={item.status === 'Active' || item.status === 'Published' ? 'default' : 'secondary'}>
+            {item.status}
+          </Badge>
+        </div>
+        {item.price && <CardDescription>Price: {item.price}</CardDescription>}
+        {item.downloads && <CardDescription>Downloads: {item.downloads}</CardDescription>}
+        {item.bookings && <CardDescription>Bookings: {item.bookings}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => handleViewListing(item.id)}>
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleEditListing(item.id)}>
+            <Edit className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleDeleteListing(item.id)}>
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+
+
   const handleDelete = (id: number) => {
     setFlightToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -150,6 +206,46 @@ const handleFormSubmit = async (values: ListingFormValues) => {
     { name: 'departure_time', label: 'Departure Time (YYYY-MM-DD HH:MM)', type: 'text', required: true },
     { name: 'arrival_time', label: 'Arrival Time (YYYY-MM-DD HH:MM)', type: 'text', required: true },
   ];
+
+
+  const listings = {
+    flights: [
+      { id: 1, title: "Accra to London", price: "₵5,200", status: "Active", bookings: 45 },
+      { id: 2, title: "Kumasi to Dubai", price: "₵4,800", status: "Active", bookings: 32 },
+      { id: 3, title: "Accra to New York", price: "₵7,500", status: "Inactive", bookings: 18 },
+      
+    ],
+    resources: [
+      { id: 1, title: "Ghana Travel Guide 2024", downloads: 1240, status: "Published" },
+      { id: 2, title: "Visa Requirements", downloads: 890, status: "Published" },
+      { id: 3, title: "Cultural Etiquette", downloads: 567, status: "Draft" }
+    ]
+  };
+
+   const Leads = [
+    { id: 1, name: "John Doe", email: "john@example.com",source:'not available', service: "Flight Booking", status: "New", date: "2024-01-15", qualification: "qualify", phone: "+233 20 123 4567", message: "Looking for affordable flight options to Accra" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com",source:'not available', service: "Tour Package", status: "Contacted", date: "2024-01-14", qualification: "qualify", phone: "+1 555 123 4567", message: "Interested in 7-day cultural tour package" },
+    { id: 3, name: "Mike Johnson", email: "mike@example.com",source:'not available', service: "Accommodation", status: "Converted", date: "2024-01-13", qualification: "qualify", phone: "+44 20 7123 4567", message: "Need luxury hotel recommendations in Kumasi" }
+  ];
+
+
+   const leadResponses = [
+    { id: 1, leadName: "John Doe", subject: "Flight Options to Accra", message: "Thank you for your inquiry. Here are some affordable flight options...", date: "2024-01-16", status: "sent" },
+    { id: 2, leadName: "Jane Smith", subject: "Cultural Tour Package Details", message: "I'm excited to share our 7-day cultural tour package...", date: "2024-01-15", status: "sent" },
+    { id: 3, leadName: "Mike Johnson", subject: "Luxury Hotels in Kumasi", message: "Here are our top luxury hotel recommendations...", date: "2024-01-14", status: "delivered" }
+  ];
+
+
+  const handleViewLeadDetails = (lead: any) => {
+    setSelectedLead(lead);
+    setIsResponseModalOpen(true);
+  };
+
+  const handleQualifyLead = (leadId: number, qualification: string) => {
+    console.log(`Qualifying lead ${leadId} as ${qualification}`);
+  };
+
+ 
 
 
   const fetchLeads = async () => {
@@ -262,7 +358,7 @@ const handleFormSubmit = async (values: ListingFormValues) => {
             Manage potential customer inquiries and opt-ins
           </p>
         </div>
-        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+        {/* <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative flex-grow sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -279,7 +375,15 @@ const handleFormSubmit = async (values: ListingFormValues) => {
             <Mail className="mr-2 h-4 w-4" />
             Email All
           </Button>
-        </div>
+        </div> */}
+        <div className="flex gap-2">
+                <Button onClick={() => setIsEmailAllModalOpen(true)}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email All
+                </Button>
+                <Input placeholder="Search leads..." className="w-64" />
+                <Button>Filter</Button>
+          </div>
        
       </div>
       {/* Toggle between listings */}
@@ -298,9 +402,6 @@ const handleFormSubmit = async (values: ListingFormValues) => {
             }`}
           ></div>
         </button>
-        <span className="text-sm text-gray-500">
-          {/* {isCardView ? "Card View" : "List "} */}
-        </span>
       </div>
       </div>
       
@@ -323,121 +424,146 @@ const handleFormSubmit = async (values: ListingFormValues) => {
         </div>
       ) : isCardView ? (
         <>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Flights</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your flight listings
-          </p>
-        </div>
-        <Button 
-          className="mt-4 md:mt-0 bg-travel-600 hover:bg-travel-700"
-          onClick={handleAdd}
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Flight
-        </Button>
-      </div>
-      <div className="listing-grid">
-        
-        {
-          flights.map((flight)=> (
-            <ListingCard
-            key={flight.id}
-              id={flight.id}
-              title={`${flight.airline} ${flight.flight_number}`}
-              image={flight.image_url}
-              description={`Flight from ${flight.departure_city} to ${flight.arrival_city}`}
-              price={flight.price}
-              priceLabel="per seat"
-              badges={[flight.airline]}
-              details={{
-                'Departure': new Date(flight.departure_time).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                }),
-                'Arrival': new Date(flight.arrival_time).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                }),
-                'Date': new Date(flight.departure_time).toLocaleDateString()
-              }}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              
-            />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listings.flights.map(item => renderListingCard(item, 'flights'))}
+                  </div>               
+     </>): (
+        <div className="overflow-x-auto rounded-lg border">
+         <div className="flex justify-center items-center my-6">
+             <div className="flex justify-center  gap-9 mb-4">
+                <Button className='w-96'
+                  variant={activeTab === 'list' ? 'default' : 'outline'} 
+                  onClick={() => setActiveTab('list')}
+                >
+                  Lead List
+                </Button>
+                <Button className='w-96'
+                  variant={activeTab === 'responses' ? 'default' : 'outline'} 
+                  onClick={() => setActiveTab('responses')}
+                >
+                  Lead Responses
+                </Button>
+            </div>
+            </div>
+
+           
+
+            {activeTab === 'list' && (
+               <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Qualification</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Leads.map(lead => (
+                        <TableRow key={lead.id}>
+                          <TableCell>{lead.name}</TableCell>
+                          <TableCell>{lead.email}</TableCell>
+                          <TableCell>{lead.source}</TableCell>
+                          <TableCell>{lead.service}</TableCell>
+                          <TableCell>
+                            <Badge variant={lead.status === 'New' ? 'default' : lead.status === 'Contacted' ? 'secondary' : 'outline'}>
+                              {lead.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              Unqualified
+                            </div>
+                          </TableCell>
+                          <TableCell>{lead.date}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => handleViewLeadDetails(lead)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Details
+                              </Button>
+                              <Button size="sm" variant="outline">
+                                <Target className="h-5 w-4 mr-1" />
+                                <Select value={lead.qualification} onValueChange={(value) => handleQualifyLead(lead.id, value)}>
+                                      <SelectTrigger className="w-32 [&>svg]:hidden">
+                                        <SelectValue />
+                                      </SelectTrigger>
+
+                                    <SelectContent>
+                                      <SelectItem value="qualify">Qualify</SelectItem>
+                                      <SelectItem value="cold">Cold</SelectItem>
+                                      <SelectItem value="warm">Warm</SelectItem>
+                                      <SelectItem value="hot">Hot</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+
+            )
+
+           
+            
+            }
+
+             {activeTab === 'responses' && (
+               <Card>
+                  <CardHeader>
+                    <CardTitle>Lead Responses</CardTitle>
+                    <CardDescription>Messages sent to leads</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Lead Name</TableHead>
+                          <TableHead>Subject</TableHead>
+                          <TableHead>Date Sent</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {leadResponses.map(response => (
+                          <TableRow key={response.id}>
+                            <TableCell>{response.leadName}</TableCell>
+                            <TableCell>{response.subject}</TableCell>
+                            <TableCell>{response.date}</TableCell>
+                            <TableCell>
+                              <Badge variant={response.status === 'delivered' ? 'default' : 'secondary'}>
+                                {response.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="outline">
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+             )
+             }
 
             
-          ))
-        }
-        <ListingForm 
-                open={formOpen}
-                onOpenChange={setFormOpen}
-                onSubmit={handleFormSubmit}
-                title={currentFlight ? "Edit Flight" : "Add New Flight"}
-                initialValues={currentFlight || []}
-                fields={additionalFields}
-              />
-        
-              <DeleteConfirmationDialog 
-                open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
-                onConfirm={confirmDelete}
-                title="Delete Flight"
-                description="Are you sure you want to delete this flight? This action cannot be undone."
-              />
-      </div></>): (
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Interest</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLeads.map((lead) => (
-                <TableRow key={lead.id}>
-                  <TableCell className="font-medium">{lead.name}</TableCell>
-                  <TableCell>{lead.email}</TableCell>
-                  <TableCell>{lead.phone || 'N/A'}</TableCell>
-                  <TableCell>{lead.interest}</TableCell>
-                  <TableCell>{formatDate(lead.created_at)}</TableCell>
-                  <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDetails(lead)}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Details
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEmail(lead)}
-                        className="bg-travel-100 text-travel-800 border-travel-200 hover:bg-travel-200"
-                      >
-                        <Mail className="h-4 w-4 mr-1" />
-                        Email
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
         </div>
-      )}
+
+                    
+        )}
 
       {/* Lead Details Dialog */}
       {selectedLead && (
