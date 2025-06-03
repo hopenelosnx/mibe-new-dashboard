@@ -11,9 +11,9 @@ export interface Package {
     travel_type?: string; // Optional, e.g., "Domestic", "International"
     duration?: string; // Optional, e.g., "3 days", "1 week"
     rating?: number; // Optional, e.g., 4.5
-    featured?: boolean; // Optional, true if the package is featured
+    featured?: boolean | string; // Optional, true if the package is featured
     status: number; // Status of the package (e.g., active or inactive)
-    destination_id?: number; // Optional, ID of the destination associated with the package
+    destination_id?: number | string; // Optional, ID of the destination associated with the package
 }
 
 // Fetch all packages from the API

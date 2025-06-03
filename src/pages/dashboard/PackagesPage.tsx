@@ -93,7 +93,11 @@ const PackagesPage = () => {
   const handleEdit = (id: number) => {
     const pkg = packages.find(p => p.id === id);
     if (pkg) {
-      setCurrentPackage(pkg);
+      setCurrentPackage({
+        ...pkg,
+        destination_id: String(pkg.destination_id),
+        featured: String(pkg.featured)
+      });
       setFormOpen(true);
     }
   };
@@ -203,16 +207,6 @@ const PackagesPage = () => {
     { name: 'image', label: 'Image', type: 'file', required: false },
     { name: 'duration', label: 'Duration', type: 'text', required: true },
     { name: 'rating', label: 'Rating (1-5)', type: 'number', required: false },
-    { 
-      name: 'status', 
-      label: 'Status', 
-      type: 'option',  
-      required: false,
-      options: [
-        { value: '1', label: 'Active' },
-        { value: '0', label: 'Inactive' }
-      ]
-    },
     { 
       name: 'featured', 
       label: 'Featured', 
@@ -325,7 +319,6 @@ const PackagesPage = () => {
                 <TableCell>${_package.price}</TableCell>
                 <TableCell>{_package.travel_type || 'N/A'}</TableCell>
                 <TableCell>{_package.rating || 'N/A'}</TableCell>
-                <TableCell>{getStatusBadge(_package.status=== 1 ? "Active":"Inactive")}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <div className="flex justify-end">

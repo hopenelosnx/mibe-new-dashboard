@@ -77,7 +77,7 @@ const GuidesPage = () => {
         totalPages: pagination.totalPages,
         totalRecords: pagination.totalRecords,
       })
-      setGuides(guide);
+      setGuides(travel_resource);
     } catch (error) {
       console.error("Error fetching guides:", error);
       toast.error("Failed to load guides");
