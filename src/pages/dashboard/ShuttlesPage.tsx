@@ -8,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from '@/components/ui/sonner';
-import { getShuttlesWithPagination, Shuttle, addShuttle, updateShuttle, deleteShuttle } from '@/services/Listings/shuttles';
+import { getShuttlesWithPagination, Shuttle, addShuttle, updateShuttle, deleteShuttle, publishShuttle } from '@/services/Listings/shuttles';
 import ListingCard from '@/components/ListingCard';
 import { ListingForm } from '@/components/forms/ListingForm';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -83,6 +83,17 @@ const ShuttlesPage = () => {
     }
   };
 
+  const handlePublish = (id: number) => {
+    const shuttle = shuttles.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (shuttle) { 
+      setCurrentShuttle(shuttle)
+      values.published = shuttle.published === "1" ? "0" : "1";
+      handlePublishedShuttle(values);
+    }
+  };
+
   const handleDelete = (id: number) => {
     setShuttleToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -133,9 +144,27 @@ const ShuttlesPage = () => {
     fetchShuttles(newPage, pagination.limit);
   };
 
+  const handlePublishedShuttle = async(published: { published: string })=>{
+    if(!currentShuttle) return;
+    try{
+      const response = await publishShuttle(currentShuttle.id,{...published});
+      if(!response){
+          toast.error('Failed to publish shuttle');
+      }else{
+        toast.success('shuttle updated successfully');
+      }
+      fetchShuttles(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update shuttle published');
+    }finally{
+      setCurrentShuttle(null)
+    }
+  }
+
   const additionalFields = [
     { name: 'name', label: 'Name', type: 'text', required: true },
-    {name: "published", label: "Published", type: "switch", required: false},
     { name: 'price', label: 'Price', type: 'number', required: true },
     { name: 'image', label: 'Image Url', type: 'file', required: true },
     { name: 'from_location', label: 'From', type: 'text', required: true },
@@ -201,11 +230,8 @@ const ShuttlesPage = () => {
               key={shuttle.id}
               id={shuttle.id}
               title={shuttle.name}
-              image={shuttle.image_url}
-              description={
-                shuttle.description ||
-                `Shuttle service from ${shuttle.from_location} to ${shuttle.to_location}`
-              }
+              image={typeof shuttle.image_url === "string"? shuttle.image_url : ""}
+              description={`Shuttle service from ${shuttle.from_location} to ${shuttle.to_location}`}
               price={shuttle.price}
               priceLabel="per seat"
               badges={['Shuttle']}
@@ -214,7 +240,9 @@ const ShuttlesPage = () => {
                 To: shuttle.to_location,
                 Schedule: shuttle.schedule || 'Flexible',
               }}
+              published={shuttle.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -229,7 +257,6 @@ const ShuttlesPage = () => {
                   <TableHead>From Location</TableHead>
                   <TableHead>Destination</TableHead>
                   <TableHead>Schedule</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -241,9 +268,22 @@ const ShuttlesPage = () => {
                     <TableCell>{shuttle.from_location}</TableCell>
                     <TableCell>{shuttle.to_location}</TableCell>
                     <TableCell>{shuttle.schedule || 'N/A'}</TableCell>
-                    <TableCell>{getStatusBadge(shuttle.published)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <div className="flex justify-end">
+                          <button
+                            onClick={handlePublish.bind(null,shuttle.id)}
+                            className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                              shuttle.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                            }`}
+                          >
+                            <div
+                              className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                                shuttle.published === "1" ? "translate-x-6" : ""
+                              }`}
+                            ></div>
+                          </button>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"

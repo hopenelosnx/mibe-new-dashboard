@@ -15,6 +15,7 @@ import {
   addResource,
   updateResource,
   deleteResource,
+  publishTravelResources
 } from "@/services/Listings/TravelResources";
 import {
   Table,
@@ -24,13 +25,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
 import { ListingForm } from "@/components/forms/ListingForm";
 import ListingCard from "@/components/ListingCard";
-import { Switch } from "@radix-ui/react-switch";
 
 const GuidesPage = () => {
-  const [Guides, setGuides] = useState<TravelResource[]>([]);
+  const [guides, setGuides] = useState<TravelResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [currentGuide, setCurrentGuide] = useState<TravelResource | null>(null);
@@ -59,21 +67,20 @@ const GuidesPage = () => {
     fetchGuides(pagination.page, pagination.limit);
   }, []);
 
-  const fetchGuides = async (page: number, limit: number) => {
+  const fetchGuides = async (page: number, limit: number,resource: string = "guide") => {
     try {
       setIsLoading(true);
-      const {guides, pagination} = await getTravelResourceWithPagination(page, limit);
-      const filteredGuides = guides.filter((resource) => resource.type === "guide");
+      const {travel_resource, pagination} = await getTravelResourceWithPagination(resource,page, limit);
       setPagination({
         page: pagination.page,
         limit: pagination.limit,
         totalPages: pagination.totalPages,
         totalRecords: pagination.totalRecords,
       })
-      setGuides(filteredGuides);
+      setGuides(guide);
     } catch (error) {
-      console.error("Error fetching Guides:", error);
-      toast.error("Failed to load Guides");
+      console.error("Error fetching guides:", error);
+      toast.error("Failed to load guides");
     } finally {
       setIsLoading(false);
     }
@@ -85,10 +92,20 @@ const GuidesPage = () => {
   };
 
   const handleEdit = (id: number) => {
-    const guide = Guides.find((g) => g.id === id);
+    const guide = guides.find((g) => g.id === id);
     if (guide) {
       setCurrentGuide(guide);
       setFormOpen(true);
+    }
+  };
+  const handlePublish = (id: number) => {
+    const guide = guides.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (guide) { 
+      setCurrentGuide(guide)
+      values.published = guide.published === "1" ? "0" : "1";
+      handlePublishedGuide(values);
     }
   };
 
@@ -135,7 +152,26 @@ const GuidesPage = () => {
     }
   };
 
-  const additionalFields = [
+
+  const handlePublishedGuide = async(published: { published: string })=>{
+    if(!currentGuide) return;
+    try{
+      const response = await publishTravelResources(currentGuide.id,{...published});
+      if(!response){
+          toast.error('Failed to publish guide');
+      }else{
+        toast.success('guide updated successfully');
+      }
+      fetchGuides(pagination.page, pagination.limit);
+      
+    }catch(error){
+      console.error(error);
+      toast.error('Failed to update guide published');
+    }finally{
+      setCurrentGuide(null)
+    }
+  }
+const additionalFields = [
     {
       name: "title",
       label: "Title",
@@ -144,14 +180,7 @@ const GuidesPage = () => {
       required: true,
     },
     {
-      name: "published",
-      label: "Published",
-      type: "switch",
-      placeholder: "Enter Guide content",
-      required: false,
-    },
-    {
-      name: "description",
+      name: "short_description",
       label: "Description",
       type: "textarea",
       placeholder: "Enter Guide description",
@@ -175,7 +204,7 @@ const GuidesPage = () => {
 
   const handleFormSubmit = async (values) => {
     try {
-      const newGuide: TravelResource = await addResource(values);
+      const newGuide = await addResource({...values,type:"guide"});
       fetchGuides(pagination.page, pagination.limit);
       setFormOpen(false);
       toast.success("Guide added successfully");
@@ -185,22 +214,18 @@ const GuidesPage = () => {
       throw error;
     }
   };
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "1":
-        return <Badge className="bg-blue-500">Published</Badge>;
-      case "0":
-        return <Badge className="bg-yellow-500">Unpublished</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    fetchAccommodations(newPage, pagination.limit);
   };
+
 
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Travel Guides</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Travel guides</h1>
           <p className="text-muted-foreground mt-1">
             Manage guides for travelers
           </p>
@@ -237,9 +262,9 @@ const GuidesPage = () => {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
         </div>
-      ) : Guides.length === 0 ? (
+      ) : guides.length === 0 ? (
         <div className="text-center p-12 border rounded-lg bg-muted/30">
-          <h3 className="text-xl font-semibold mb-2">No Guides found</h3>
+          <h3 className="text-xl font-semibold mb-2">No guides found</h3>
           <p className="text-muted-foreground mb-4">
             Get started by adding your first travel Guide
           </p>
@@ -250,24 +275,26 @@ const GuidesPage = () => {
         </div>
       ) : isCardView ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Guides.map((Guide) => (
+          {guides.map((guide) => (
             <ListingCard
-              key={Guide.id}
-              id={Guide.id}
-              title={Guide.title}
-              description={Guide.description || Guide.content || ""}
+              key={guide.id}
+              id={guide.id}
+              title={guide.title}
+              description={guide.short_description || guide.content || ""}
               image={
-                typeof Guide.image_url === "string"
-                  ? Guide.image_url
-                  : Guide.image_url
-                  ? URL.createObjectURL(Guide.image_url)
+                typeof guide.image_url === "string"
+                  ? guide.image_url
+                  : guide.image_url
+                  ? URL.createObjectURL(guide.image_url)
                   : ""
               }
               badges={[
-                Number(Guide.published) === 1 ? "Published" : "Unpublished",
+                Number(guide.published) === 1 ? "Published" : "Unpublished",
               ]}
-              price={0} // Provide a default price if not available
+              price={null} // Provide a default price if not available
+              published={guide.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -279,20 +306,32 @@ const GuidesPage = () => {
               <TableRow>
                 <TableHead>Title</TableHead>
                 <TableHead>Content</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Guides.map((guide) => (
+              {guides.map((guide) => (
                 <TableRow key={guide.id}>
                   <TableCell className="font-medium">{guide.title}</TableCell>
                   <TableCell>{guide.content.slice(0, 30)}...</TableCell>
-                  <TableCell>{formatDate(guide.created_at)}</TableCell>
-                  <TableCell>{getStatusBadge(guide.published)}</TableCell>
+                  <TableCell>{guide.short_description}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handlePublish.bind(null,guide.id)}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                            guide.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                              guide.published === "1" ? "translate-x-6" : ""
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -319,6 +358,35 @@ const GuidesPage = () => {
           </Table>
         </div>
       )}
+            {/* Pagination */}
+              <Pagination className="mt-6">
+                {guides.length > 0 && (
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Showing page {pagination.page} of {pagination.totalPages}
+                  </div>
+                )}
+                <PaginationContent>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                  />
+                  {[...Array(pagination.totalPages)].map((_, idx) => (
+                    <PaginationItem key={idx}>
+                      <PaginationLink
+                        isActive={pagination.page === idx + 1}
+                        onClick={() => handlePageChange(idx + 1)}
+                      >
+                        {idx + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationNext
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.totalPages}
+                  />
+                </PaginationContent>
+              </Pagination>
+      
 
       {/* Add Guide Dialog */}
       {!currentGuide && (

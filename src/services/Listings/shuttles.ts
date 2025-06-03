@@ -1,4 +1,4 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 export interface Shuttle {
     id: number;
@@ -22,11 +22,11 @@ export const getShuttlesWithPagination = async (
   page: number = 1,
   limit: number = 10
 ): Promise<{ shuttles: Shuttle[]; pagination: { page: number; limit: number; totalPages: number; totalRecords: number } }> => {
-  const response = await fetch(`${apiConfig.baseurl}shuttles/?page=${page}&limit=${limit}`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}shuttles/?page=${page}&limit=${limit}`);
+  if (response.status !== 200) {
     throw new Error("Failed to fetch shuttles with pagination");
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
     shuttles: data.shuttles,
     pagination: data.pagination,
@@ -34,11 +34,11 @@ export const getShuttlesWithPagination = async (
 }
 
 export const getShuttles = async (): Promise<Shuttle[]> => {
-    const response = await fetch(`${apiConfig.baseurl}shuttles/`);
-    if (!response.ok) {
+    const response = await api(`${base_url}shuttles/`);
+    if (response.status !== 200) {
         throw new Error("Failed to fetch shuttles");
     }
-    return response.json();
+    return response.data;
 }
 
 export const addShuttle = async (shuttle: Omit<Shuttle, "id">): Promise<Shuttle> => {
@@ -58,16 +58,12 @@ export const addShuttle = async (shuttle: Omit<Shuttle, "id">): Promise<Shuttle>
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}shuttles/`, {
-        method: "POST",
-        body: formData,
-        headers:apiConfig.headers,
-    });
+    const response = await api.post(`${base_url}shuttles/`, formData);
 
-    if (!response.ok) {
+    if (response.status !== 201) {
         throw new Error("Failed to add shuttle");
     }
-    return response.json();
+    return response.data;
 };
 
 export const updateShuttle = async (id: number, shuttle: Omit<Shuttle, "id">): Promise<Shuttle> => {
@@ -87,26 +83,33 @@ export const updateShuttle = async (id: number, shuttle: Omit<Shuttle, "id">): P
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}shuttles/${id}/`, {
-        method: "PUT",
-        body: formData,
-        headers:apiConfig.headers,
-    });
+    const response = await api.put(`${base_url}shuttles/${id}/`, formData);
 
-    if (!response.ok) {
+    if (response.status !== 200) {
         throw new Error("Failed to update shuttle");
     }
-    return response.json();
+    return response.data;
 };
 
 export const deleteShuttle = async (id: number): Promise<void> => {
-    const response = await fetch(`${apiConfig.baseurl}shuttles/${id}/`, {
-        method: "DELETE",
-        headers:apiConfig.headers,
-    });
+    const response = await api.delete(`${base_url}shuttles/${id}/`);
 
-    if (!response.ok) {
+    if (response.status !== 200) {
         throw new Error("Failed to delete shuttle");
     }
 };
 
+export const publishShuttle = async(id: number, published: { published: string }): Promise<Shuttle> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}shuttles/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish Shuttle")
+    }
+
+    return response.data;
+}

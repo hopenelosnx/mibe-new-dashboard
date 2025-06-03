@@ -1,4 +1,4 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 // Interface representing a package
 export interface Package {
@@ -18,11 +18,11 @@ export interface Package {
 
 // Fetch all packages from the API
 export const getPackages = async (): Promise<Package[]> => {
-    const response = await fetch(`${apiConfig.baseurl}packages/`);
-    if (!response.ok) {
+    const response = await api.get(`${base_url}packages/`);
+    if (response.status !== 200) {
         throw new Error("Failed to fetch packages");
     }
-    return response.json();
+    return response.data;
 };
 
 // Add a new package to the API
@@ -45,16 +45,12 @@ export const addPackage = async (
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}packages/`, {
-        method: "POST",
-        body: formData,
-        headers:apiConfig.headers,
-    });
+    const response = await api.post(`${base_url}packages/`, formData);
 
-    if (!response.ok) {
+    if (response.status !== 201) {
         throw new Error("Failed to add package");
     }
-    return response.json();
+    return response.data;
 };
 
 // Fetch packages with pagination from the API
@@ -70,13 +66,12 @@ export const getPackagesWithPagination = async (
         totalRecords: number;
     };
 }> => {
-    const response = await fetch(
-        `${apiConfig.baseurl}packages/?page=${page}&limit=${limit}`
+    const response = await api.get(`${base_url}packages/?page=${page}&limit=${limit}`
     );
-    if (!response.ok) {
+    if (response.status !== 200) {
         throw new Error("Failed to fetch packages with pagination");
     }
-    const data = await response.json();
+    const data = await response.data;
     return {
         packages: data.packages,
         pagination: data.pagination,
@@ -104,26 +99,33 @@ export const updatePackage = async (
         }
     });
 
-    const response = await fetch(`${apiConfig.baseurl}packages/${id}/`, {
-        method: "PUT",
-        body: formData,
-        headers:apiConfig.headers,
-    });
-
-    if (!response.ok) {
+    const response = await api.put(`${base_url}packages/${id}/`, formData);
+    if (response.status !== 200) {
         throw new Error("Failed to update package");
     }
-    return response.json();
+    return response.data;
 };
 
 // Delete a package from the API
 export const deletePackage = async (id: number): Promise<void> => {
-    const response = await fetch(`${apiConfig.baseurl}packages/${id}/`, {
-        method: "DELETE",
-        headers:apiConfig.headers,
-    });
+    const response = await api.delete(`${base_url}packages/${id}/`);
 
-    if (!response.ok) {
+    if (response.status !== 200) {
         throw new Error("Failed to delete package");
     }
 };
+
+export const publishPackage = async(id: number, published: { published: string }): Promise<Package> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}packages/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish package")
+    }
+
+    return response.data;
+}

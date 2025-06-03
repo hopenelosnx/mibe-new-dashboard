@@ -1,27 +1,27 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 // Define the Vehicle interface to represent the structure of a vehicle object
 export interface Vehicle {
   id: number; // Unique identifier for the vehicle
   name: string; // Name of the vehicle
   published: string; // Publication date of the vehicle listing
-  type: string; // Type/category of the vehicle
+  type: string ; // Type/category of the vehicle
   price_per_day: number; // Rental price per day
   capacity?: string; // Optional: Seating capacity of the vehicle
   transmission?: string; // Optional: Transmission type (e.g., automatic, manual)
   fuel_type?: string; // Optional: Type of fuel used by the vehicle
-  status?: string; // Optional: Status of the vehicle (e.g., available, rented)
+  status?: string | number; // Optional: Status of the vehicle (e.g., available, rented)
   image_url?: File | string; // Optional: Image file or URL for the vehicle
   rating?: number; // Optional: Rating of the vehicle
 }
 
 // Fetch the list of vehicles from the API
 export const getVehicles = async (): Promise<Vehicle[]> => {
-  const response = await fetch(`${apiConfig.baseurl}vehicles/`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}vehicles/`);
+  if (response.status !== 200) {
     throw new Error("Failed to fetch vehicles");
   }
-  return response.json();
+  return response.data;
 };
 
 
@@ -37,13 +37,13 @@ export const getVehiclesWithPagination = async (
     totalRecords: number;
   };
 }> => {
-  const response = await fetch(
-    `${apiConfig.baseurl}vehicles/?page=${page}&limit=${limit}`
+  const response = await api.get(
+    `${base_url}vehicles/?page=${page}&limit=${limit}`
   );
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error("Failed to fetch vehicles with pagination");
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
     vehicles: data.vehicles,
     pagination: data.pagination,
@@ -66,16 +66,12 @@ export const addVehicle = async (
   });
 
   // Send a POST request to add the vehicle
-  const response = await fetch(`${apiConfig.baseurl}vehicles/`, {
-    method: "POST",
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.post(`${base_url}vehicles/`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 201) {
     throw new Error("Failed to add vehicle");
   }
-  return response.json();
+  return response.data;
 };
 
 // Update an existing vehicle in the API
@@ -96,27 +92,35 @@ export const updateVehicle = async (
   });
 
   // Send a PUT request to update the vehicle
-  const response = await fetch(`${apiConfig.baseurl}vehicles/${id}`, {
-    method: "PUT",
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.put(`${base_url}vehicles/${id}`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error("Failed to update vehicle");
   }
-  return response.json();
+  return response.data;
 };
 
 // Delete a vehicle from the API
 export const deleteVehicle = async (id: number): Promise<void> => {
   // Send a DELETE request to remove the vehicle
-  const response = await fetch(`${apiConfig.baseurl}vehicles/${id}`, {
-    method: "DELETE",
-    headers:apiConfig.headers,
-  });
+  const response = await api.delete(`${base_url}vehicles/${id}`)
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error("Failed to delete vehicle");
   }
 };
+
+export const publishVehicle = async(id: number, published: { published: string }): Promise<Vehicle> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}vehicles/published/${id}`,data,{
+        headers:{
+            "Content-Type":"application/json"
+        }
+    });
+    if(response.status !== 200){
+        console.log(response)
+        throw new Error("Failed to publish vehicle")
+    }
+
+    return response.data;
+}

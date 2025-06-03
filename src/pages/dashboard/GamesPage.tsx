@@ -3,7 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PlusCircle, Loader, Pencil, Trash2, FileText, BookOpen, Wrench } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { getTravelResources, TravelResource, addResource, updateResource, deleteResource } from '@/services/dataService';
+import {
+  getTravelResourceWithPagination,
+  TravelResource,
+  addResource,
+  updateResource,
+  deleteResource,
+  publishTravelResources,
+} from "@/services/Listings/TravelResources";
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -19,7 +26,7 @@ import {
 } from "@/components/ui/pagination";
 
 const GamesPage = () => {
-  const [Games, setToolkits] = useState<TravelResource[]>([]);
+  const [games, setToolkits] = useState<TravelResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   // State to toggle between card and list view
@@ -40,19 +47,24 @@ const GamesPage = () => {
     };
 
   useEffect(() => {
-    fetchGames();
+    fetchGames(pagination.page, pagination.limit);
   }, []);
 
 
-  const fetchGames = async () => {
+  const fetchGames = async (page:number, limit:number,resource:string = "game") => {
     try {
       setIsLoading(true);
-      const data = await getTravelResources();
-      const Games = data.filter((resource) => resource.type === "games");
-      setToolkits(Games);
+      const {travel_resource,pagination} = await getTravelResourceWithPagination(resource,page,limit);
+      setToolkits(travel_resource);
+      setPagination({
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: pagination.totalPages,
+        totalRecords: pagination.totalRecords,
+      });
     } catch (error) {
-      console.error('Error fetching Games:', error);
-      toast.error('Failed to load Games');
+      console.error('Error fetching games:', error);
+      toast.error('Failed to load games');
     } finally {
       setIsLoading(false);
     }
@@ -64,13 +76,23 @@ const GamesPage = () => {
   };
 
   const handleEdit = (id: number) => {
-    const games = Games.find((g) => g.id === id);
+    const games = games.find((g) => g.id === id);
     if (games) {
       setCurrentGames(games);
       setFormOpen(true);
     }
   };
 
+  const handlePublish = (id: number) => {
+    const game = games.find((f) => f.id === id);
+    const values: { published: string } = { published: "" };
+
+    if (game) {
+      setCurrentGames(game);
+      values.published = game.published === "1" ? "0" : "1";
+      handlePublishedGame(values);
+    }
+  };
   const handleDelete = (id: number) => {
     setGamesToDelete(id);
     setIsDeleteDialogOpen(true);
@@ -85,12 +107,12 @@ const GamesPage = () => {
         ...values
       });
 
-      setToolkits(Games.map(r => r.id === currentGames.id ? response : r));
+      setToolkits(games.map(r => r.id === currentGames.id ? response : r));
       setFormOpen(false);
-      toast.success('Games updated successfully');
+      toast.success('games updated successfully');
     } catch (error) {
-      console.error('Error updating Games:', error);
-      toast.error('Failed to update Games');
+      console.error('Error updating games:', error);
+      toast.error('Failed to update games');
     } finally {
       setIsProcessing(false);
     }
@@ -102,11 +124,11 @@ const GamesPage = () => {
     try {
       setIsProcessing(true);
       await deleteResource(gamesToDelete);
-      setToolkits(Games.filter(r => r.id !== gamesToDelete));
-      toast.success('Games deleted successfully');
+      setToolkits(games.filter(r => r.id !== gamesToDelete));
+      toast.success('games deleted successfully');
     } catch (error) {
-      console.error('Error deleting Games:', error);
-      toast.error('Failed to delete Games');
+      console.error('Error deleting games:', error);
+      toast.error('Failed to delete games');
     } finally {
       setIsProcessing(false);
         setIsDeleteDialogOpen(false);
@@ -114,47 +136,55 @@ const GamesPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-          switch (status) {
-          case '1':
-              return <Badge className="bg-blue-500">Published</Badge>;
-          case '0':
-              return <Badge className="bg-yellow-500">Unpublished</Badge>;
-          default:
-              return <Badge>{status}</Badge>;
-          }
-      };
+  const handlePublishedGame = async (published: { published: string }) => {
+    if (!currentGames) return;
+    try {
+      const response = await publishTravelResources(currentGames.id, {
+        ...published,
+      });
+      if (!response) {
+        toast.error("Failed to publish game");
+      } else {
+        toast.success("game updated successfully");
+      }
+      fetchGames(pagination.page, pagination.limit);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update game published");
+    } finally {
+      setCurrentGames(null);
+    }
+  };
   const additionalFields = [
-    {name:"title", label:"Title", type:"text", placeholder:"Enter Games title", required:true},
-    {name:"published", label:"Published", type:"switch", placeholder:"Enter Games content",required:false},
-    {name:"description", label:"Description", type:"textarea", placeholder:"Enter Games description",required:true},
-    {name:"content", label:"Content", type:"textarea", placeholder:"Enter Games content",required:true},
+    {name:"title", label:"Title", type:"text", placeholder:"Enter games title", required:true},
+    {name:"short_description", label:"Description", type:"textarea", placeholder:"Enter games description",required:true},
+    {name:"content", label:"Content", type:"textarea", placeholder:"Enter games content",required:true},
     {name:"image", label:"Image URL", type:"file", placeholder:"https://example.com/image.jpg",required:false},
   ]
 
   const handleFormSubmit = async (values) => {
     try{
-        const newToolkits: TravelResource = await addResource(values);
-        setToolkits([...Games, newToolkits]);
+        const newToolkits: TravelResource = await addResource({...values,type:"game"});
+        setToolkits([...games, newToolkits]);
         setFormOpen(false);
-        toast.success('Games added successfully');
+        toast.success('games added successfully');
     } catch (error) {
-        console.error('Error adding Games:', error);
-        toast.error('Failed to add Games');
+        console.error('Error adding games:', error);
+        toast.error('Failed to add games');
         throw error;
     }
   };
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > pagination.totalPages) return;
-    // fetchGames(newPage, pagination.limit);
+    fetchGames(newPage, pagination.limit);
   };
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Travel Games</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Travel games</h1>
           <p className="text-muted-foreground mt-1">
-            Manage Games for travelers
+            Manage games for travelers
           </p>
         </div>
         <Button 
@@ -162,7 +192,7 @@ const GamesPage = () => {
           onClick={handleAdd}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Games
+          Add New games
         </Button>
         {/* Toggle between listings */}
         <div className='flex justify-end'>
@@ -189,29 +219,31 @@ const GamesPage = () => {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
         </div>
-      ) : Games.length === 0 ? (
+      ) : games.length === 0 ? (
         <div className="text-center p-12 border rounded-lg bg-muted/30">
-          <h3 className="text-xl font-semibold mb-2">No Games found</h3>
+          <h3 className="text-xl font-semibold mb-2">No games found</h3>
           <p className="text-muted-foreground mb-4">
-            Get started by adding your first travel Games
+            Get started by adding your first travel games
           </p>
           <Button onClick={handleAdd}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Games
+            Add games
           </Button>
         </div>
       ) : isCardView ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Games.map((games) => (
+          {games.map((game) => (
             <ListingCard
-              key={games.id}
-              id={games.id}
-              title={games.title}
-              description={games.description || games.content || ""}
-              image={typeof games.image_url === "string" ? games.image_url : games.image_url ? URL.createObjectURL(games.image_url) : ""}
-              badges={[ Number(games.published) === 1 ? 'Published' : 'Unpublished' ]}
+              key={game.id}
+              id={game.id}
+              title={game.title}
+              description={game.short_description ||  ""}
+              image={typeof game.image_url === "string" ? game.image_url : ""}
+              badges={[ Number(game.published) === 1 ? 'Published' : 'Unpublished' ]}
               price={null} // Provide a default price if not available
+              published={game.published}
               onEdit={handleEdit}
+              onPublish={handlePublish}
               onDelete={handleDelete}
             />
           ))}
@@ -224,23 +256,37 @@ const GamesPage = () => {
                         <TableHead>Title</TableHead>
                         <TableHead>Content</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {Games.map((games) => (
-                        <TableRow key={games.id}>
-                            <TableCell className="font-medium">{games.title}</TableCell>
-                            <TableCell>{games.content.slice(0, 30)}...</TableCell>
-                            <TableCell>{formatDate(games.created_at)}</TableCell>
-                            <TableCell>{getStatusBadge(games.published)}</TableCell>
+                    {games.map((game) => (
+                        <TableRow key={game.id}>
+                            <TableCell className="font-medium">{game.title}</TableCell>
+                            <TableCell>{game.content.slice(0, 30)}...</TableCell>
+                            <TableCell>{formatDate(game.created_at)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
+                                  <div className="flex justify-end">
+                                    <button
+                                      onClick={handlePublish.bind(null, game.id)}
+                                      className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                                        game.published === "1"
+                                          ? "bg-blue-500"
+                                          : "bg-gray-300"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                                          game.published === "1" ? "translate-x-6" : ""
+                                        }`}
+                                      ></div>
+                                    </button>
+                                  </div>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={handleEdit.bind(null, games.id)}
+                                        onClick={handleEdit.bind(null, game.id)}
                                         className="bg-travel-100 text-travel-800 border-travel-200 hover:bg-travel-200"
                                     >
                                         <Pencil className="h-4 w-4 mr-1" />
@@ -249,7 +295,7 @@ const GamesPage = () => {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={handleDelete.bind(null, games.id)}
+                                        onClick={handleDelete.bind(null, game.id)}
                                         className="bg-red-100 text-red-800 border-travel-200 hover:bg-red-200"
                                     >
                                         <Trash2 className="h-4 w-4 mr-1" />
@@ -264,21 +310,21 @@ const GamesPage = () => {
         </div>
     )}
 
-      {/* Add Games Dialog */}
+      {/* Add games Dialog */}
 
       {!currentGames && (
         <ListingForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          title="Add New Games"
+          title="Add New games"
           fields={additionalFields}
           initialValues={{title:"",description:"",content:"",image_url:"",type:"games"}}
           onSubmit={handleFormSubmit}
         />
       )}
         {/* Pagination */}
-        {/* <Pagination className="mt-6">
-            {Games.length > 0 && (
+        <Pagination className="mt-6">
+            {games.length > 0 && (
             <div className="text-sm text-muted-foreground mb-2">
                 Showing page {pagination.page} of {pagination.totalPages}
             </div>
@@ -304,13 +350,13 @@ const GamesPage = () => {
             />
             </PaginationContent>
         </Pagination>
-         */}
-      {/* Edit Games Dialog */}
+        
+      {/* Edit games Dialog */}
       {currentGames && (
         <ListingForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          title={`Update Games: ${currentGames.title}`}
+          title={`Update games: ${currentGames.title}`}
           fields={additionalFields}
           initialValues={currentGames}
           onSubmit={handleUpdate}
@@ -322,7 +368,7 @@ const GamesPage = () => {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Games"
+        title="Delete games"
         description={`Are you sure you want to delete the games? This action cannot be undone.`}
         isDeleting={isProcessing}
       />

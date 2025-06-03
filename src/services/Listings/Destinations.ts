@@ -1,4 +1,4 @@
-import apiConfig from "../apiConfig";
+import {api,base_url} from "../apiConfig";
 
 export interface Destination {
   id: number;
@@ -12,11 +12,11 @@ export interface Destination {
 
 
 export const getDestinations = async (): Promise<Destination[]> => {
-  const response = await fetch(`${apiConfig.baseurl}destinations/`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}destinations/`);
+  if (response.status !== 200) {
     throw new Error("Failed to fetch destinations");
   }
-  return response.json();
+  return response.data;
 };
 
 export const getDestinationsWithPagination = async (page: number = 1, limit: number = 10): Promise<{
@@ -28,11 +28,11 @@ export const getDestinationsWithPagination = async (page: number = 1, limit: num
     totalRecords: number;
   };
 }> => {
-  const response = await fetch(`${apiConfig.baseurl}destinations/paginated/?page=${page}&limit=${limit}`);
-  if (!response.ok) {
+  const response = await api.get(`${base_url}destinations/paginated/?page=${page}&limit=${limit}`);
+  if (response.status !== 200) {
     throw new Error('Failed to fetch destinations with pagination');
   }
-  const data = await response.json();
+  const data = await response.data;
   return {
     destinations: data.destinations,
     pagination: data.pagination,
@@ -57,17 +57,13 @@ export const addDestination = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}destinations/`, {
-    method: 'POST',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.post(`${base_url}destinations/`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 201) {
     throw new Error('Failed to add Destination');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Updates an existing Destination in the API
@@ -89,27 +85,31 @@ export const updateDestination = async (
     }
   });
 
-  const response = await fetch(`${apiConfig.baseurl}destinations/${id}`, {
-    method: 'PUT',
-    body: formData,
-    headers:apiConfig.headers,
-  });
+  const response = await api.put(`${base_url}destinations/${id}`, formData);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('Failed to update Destination');
   }
 
-  return response.json();
+  return response.data;
 };
 
 // Deletes an Destination from the API
 export const deleteDestination = async (id: number): Promise<void> => {
-  const response = await fetch(`${apiConfig.baseurl}destinations/${id}`, {
-    method: 'DELETE',
-    headers:apiConfig.headers,
-  });
+  const response = await api.delete(`${base_url}destinations/${id}`);
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('Failed to delete Destination');
   }
 };
+
+export const publishDestination = async(id: number, published: { published: string }): Promise<Destination> => {
+    const data = JSON.stringify(published);
+    const response = await api.post(`${base_url}destinations/published/${id}`,data);
+    if(response.status !== 201){
+        console.log(response)
+        throw new Error("Failed to publish Destination")
+    }
+
+    return response.data;
+}
