@@ -40,6 +40,7 @@ import {
   PersonStandingIcon,
   User2,
   DollarSign,
+  TableOfContents
 
 } from 'lucide-react';
 
@@ -246,8 +247,8 @@ const DashboardSidebar = () => {
           name:"Other Listings",
           icon:<ListIcon className="h-5 w-5"/>,
           dropdown:[{
-            name: 'Partners',
-            href: '/partners',
+            name: 'Trusted By Partner',
+            href: '/trustedby',
             icon: <PersonStandingIcon className="h-5 w-5" />,
           },{
             name: 'Team',
@@ -261,7 +262,19 @@ const DashboardSidebar = () => {
             name: 'Cases Studies',
             href: '/case-studies',
             icon: <File className="h-5 w-5" />,
-          },]
+          },{
+            name: 'FAQs',
+            href: '/faq',
+            icon: <TableOfContents className="h-5 w-5" />,
+          },{
+            name: 'Terms',
+            href: '/terms',
+            icon: <File className="h-5 w-5" />,
+          },{
+            name: 'Partner Providers',
+            href: '/case-studies',
+            icon: <User2 className="h-5 w-5" />,
+          }]
         }
     ]
     },
@@ -351,7 +364,7 @@ const DashboardSidebar = () => {
                   <User className="h-6 w-6 text-sidebar-foreground" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                  {/* <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p> */}
                   <p className="text-xs text-sidebar-foreground/70">{user?.email}</p>
                 </div>
               </div>

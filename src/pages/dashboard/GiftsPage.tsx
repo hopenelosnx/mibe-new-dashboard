@@ -1,13 +1,20 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { PlusCircle, Loader, Pencil, Trash2, FileText, BookOpen, Wrench } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import { getAllGifts, Gift, addGift, updateGift, deleteGift } from '@/services/dataService';
-import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ListingForm } from '@/components/forms/ListingForm';
-import ListingCard from '@/components/ListingCard';
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { PlusCircle, Loader, Pencil, Trash2 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
+import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ListingForm } from "@/components/forms/ListingForm";
+import ListingCard from "@/components/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import {
   Pagination,
@@ -19,12 +26,12 @@ import {
 } from "@/components/ui/pagination";
 
 const GiftsPage = () => {
-  const [Gifts, setGifts] = useState<Gift[]>([]);
+  const [Gifts, setGifts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   // State to toggle between card and list view
   const [isCardView, setIsCardView] = useState(true);
-  const [currentGifts, setCurrentGifts] = useState<Gift | null>(null);
+  const [currentGifts, setCurrentGifts] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [GiftsToDelete, setGiftsToDelete] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,31 +43,73 @@ const GiftsPage = () => {
   });
 
   useEffect(() => {
-    fetchGifts(pagination.page, pagination.limit);
+    const fetchGifts = async () => {
+      try {
+        setIsLoading(true);
+        const { data } = await axios.get(
+          `http://localhost:5000/api/giftcards?page=${pagination.page}&limit=${pagination.limit}`
+        );
+
+        const giftsData =
+          data.records && Array.isArray(data.records)
+            ? data.records
+            : Array.isArray(data)
+            ? data
+            : [];
+
+        setGifts(giftsData);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: data.totalPages || 1,
+          totalRecords: data.totalRecords || giftsData.length || 0,
+        }));
+      } catch (error) {
+        console.error("Error fetching Gifts:", error);
+        toast.error("Failed to load Gifts");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchGifts();
   }, [pagination.page, pagination.limit]);
 
-
-  const fetchGifts = async (page: number, limit: number) => {
+  const handlePublish = async (id) => {
     try {
-      setIsLoading(true);
-      const data = await getAllGifts();
-      setGifts(data);
+      const gift = Gifts.find((g) => g.id === id);
+      if (!gift) return;
+
+      const updatedPublished = gift.published === "1" ? false : true;
+
+      await axios.put(`http://localhost:5000/api/giftcards/${id}/publish`, {
+        published: updatedPublished ? "1" : "0",
+      });
+
+      setGifts((prev) =>
+        prev.map((g) =>
+          g.id === id ? { ...g, published: updatedPublished ? "1" : "0" } : g
+        )
+      );
+
+      toast.success(
+        `Gift has been ${
+          updatedPublished ? "published" : "unpublished"
+        } successfully`
+      );
     } catch (error) {
-      console.error('Error fetching Gifts:', error);
-      toast.error('Failed to load Gifts');
-    } finally {
-      setIsLoading(false);
+      console.error("Failed to toggle published status:", error);
+      toast.error("Failed to update publish status");
     }
   };
 
-  const handleAdd =  () => {
+  const handleAdd = () => {
     setCurrentGifts(null);
     setFormOpen(true);
   };
 
   const handleEdit = (id: number) => {
     const gift = Gifts.find((g) => g.id === id);
-    console.log('Editing gift:', gift);
+    console.log("Editing gift:", gift);
     if (gift) {
       setCurrentGifts(() => gift);
       setFormOpen(true);
@@ -74,19 +123,21 @@ const GiftsPage = () => {
 
   const handleUpdate = async (values) => {
     if (!currentGifts) return;
-    
+
     try {
       setIsProcessing(true);
-      const response = await updateGift(currentGifts.id, {
-        ...values
-      });
-
-      setGifts(Gifts.map(r => r.id === currentGifts.id ? { ...r, ...response } : r));
+      const { data } = await axios.put(
+        `http://localhost:5000/api/giftcards/${currentGifts.id}`,
+        values
+      );
+      setGifts(
+        Gifts.map((r) => (r.id === currentGifts.id ? { ...r, ...data } : r))
+      );
       setFormOpen(false);
-      toast.success('Gifts updated successfully');
+      toast.success("Gifts updated successfully");
     } catch (error) {
-      console.error('Error updating Gifts:', error);
-      toast.error('Failed to update Gifts');
+      console.error("Error updating Gifts:", error);
+      toast.error("Failed to update Gifts");
     } finally {
       setIsProcessing(false);
     }
@@ -97,65 +148,104 @@ const GiftsPage = () => {
 
     try {
       setIsProcessing(true);
-      await deleteGift(GiftsToDelete);
-      setGifts(Gifts.filter(r => r.id !== GiftsToDelete));
-      toast.success('Gifts deleted successfully');
+      await axios.delete(
+        `http://localhost:5000/api/giftcards/${GiftsToDelete}`
+      );
+      setGifts(Gifts.filter((r) => r.id !== GiftsToDelete));
+      toast.success("Gift deleted successfully");
     } catch (error) {
-      console.error('Error deleting Gifts:', error);
-      toast.error('Failed to delete Gifts');
+      console.error("Error deleting Gift:", error);
+      toast.error("Failed to delete Gift");
     } finally {
       setIsProcessing(false);
-        setIsDeleteDialogOpen(false);
-        setGiftsToDelete(null);
+      setIsDeleteDialogOpen(false);
+      setGiftsToDelete(null);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-          switch (status) {
-          case 'Active':
-              return <Badge className="bg-blue-500">Active</Badge>;
-            case 'Draft':
-              return <Badge className="bg-gray-300">Draft</Badge>;
-          case 'Archived':
-              return <Badge className="bg-gray-500">Archived</Badge>;
-          case '1':
-              return <Badge className="bg-yellow-500">Unpublished</Badge>;
-          case '0':
-            return <Badge className="bg-green-500">Published</Badge>;
-          default:
-              return <Badge>{status}</Badge>;
-          }
-      };
-
-const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > pagination.totalPages) return;
-    fetchGifts(newPage, pagination.limit);
+  const getStatusBadge = (reason) => {
+    return <Badge className="bg-blue-500">{reason}</Badge>;
   };
-  
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    setPagination((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
+  };
+
   const additionalFields = [
-    {name:"title", label:"Title", type:"text", placeholder:"Enter Gifts title", required:true},
-    {name: "published", label: "Published", type: "switch", placeholder: "Select Gifts published status", required: false},
-    {name:"status", label:"Status", type:"option", placeholder:"Enter Gifts status",required:true, options: [
-      { value: 'Active', label: 'Active' },
-      { value: 'Inactive', label: 'Inactive' },
-      { value: 'Archived', label: 'Archived' },
-      { value: 'Draft', label: 'Draft' },
-    ]},
-    {name:"description", label:"Description", type:"textarea", placeholder:"Enter Gifts description",required:true},
-    {name:"price", label:"Price", type:"number", placeholder:"Enter Gifts price",required:true},
-    {name:"image", label:"Image URL", type:"file", placeholder:"https://example.com/image.jpg",required:false},
-  ]
+    {
+      name: "title",
+      label: "Title",
+      type: "text",
+      placeholder: "Enter Gifts title",
+      required: true,
+    },
+    {
+      name: "published",
+      label: "Published",
+      type: "switch",
+      placeholder: "Select Gifts published status",
+      required: false,
+    },
+    {
+      name: "gifttypes",
+      label: "Gift Reason",
+      type: "option",
+      placeholder: "Select gift reason",
+      required: true,
+      options: [
+        { value: "Birthday", label: "Birthday" },
+        { value: "Fathers Day", label: "Fathers Day" },
+        { value: "Mothers Day", label: "Mothers Day" },
+        { value: "Anniversary", label: "Anniversary" },
+        { value: "Wedding Day", label: "Wedding Day" },
+        { value: "HoneyMoon", label: "HoneyMoon" },
+        { value: "Employee of the Month", label: "Employee of the Month" },
+        { value: "Employee Reward", label: "Employee Reward" },
+        { value: "Christmas", label: "Christmas" },
+        { value: "Graduation", label: "Graduation" },
+        { value: "Valentine", label: "Valentine" },
+      ],
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "textarea",
+      placeholder: "Enter Gifts description",
+      required: true,
+    },
+    {
+      name: "price",
+      label: "Price",
+      type: "number",
+      placeholder: "Enter Gifts price",
+      required: true,
+    },
+    {
+      name: "image",
+      label: "Image URL",
+      type: "file",
+      placeholder: "https://example.com/image.jpg",
+      required: false,
+    },
+  ];
 
   const handleFormSubmit = async (values) => {
-    try{
-        const newGifts: Gift = await addGift(values);
-        setGifts([...Gifts, newGifts]);
-        setFormOpen(false);
-        toast.success('Gifts added successfully');
+    try {
+      const { data } = await axios.post(
+        "http://localhost:5000/api/giftcards",
+        values
+      );
+      setGifts([...Gifts, data]);
+      setFormOpen(false);
+      toast.success("Gift added successfully");
     } catch (error) {
-        console.error('Error adding Gifts:', error);
-        toast.error('Failed to add Gifts');
-        throw error;
+      console.error("Error adding Gift:", error);
+      toast.error("Failed to add Gift");
+      throw error;
     }
   };
 
@@ -168,7 +258,7 @@ const handlePageChange = (newPage: number) => {
             Manage Gifts for travelers
           </p>
         </div>
-        <Button 
+        <Button
           className="mt-4 md:mt-0 bg-travel-600 hover:bg-travel-700"
           onClick={handleAdd}
         >
@@ -176,26 +266,25 @@ const handlePageChange = (newPage: number) => {
           Add New Gifts
         </Button>
         {/* Toggle between listings */}
-        <div className='flex justify-end'>
-            <button
+        <div className="flex justify-end">
+          <button
             onClick={() => setIsCardView(!isCardView)}
             className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
-                isCardView ? "bg-blue-500" : "bg-gray-300"
+              isCardView ? "bg-blue-500" : "bg-gray-300"
             }`}
-            >
+          >
             <div
-                className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+              className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
                 isCardView ? "translate-x-6" : ""
-                }`}
+              }`}
             ></div>
-            </button>
+          </button>
         </div>
-      
-      {/* End of toggle  */}
+        {/* End of toggle  */}
       </div>
-      
+
       <Separator className="my-6" />
-      
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
@@ -219,9 +308,18 @@ const handlePageChange = (newPage: number) => {
               id={gift.id}
               title={gift.title}
               description={`${gift.description}`}
-              badges={[ gift.status, gift.published === "1" ? "Published" : "Unpublished"]}
-              image={typeof gift.image_url === "string" ? gift.image_url : "https://via.placeholder.com/150"}
-              price={ gift.price} // Provide a default price if not available
+              badges={[
+                gift.status,
+                gift.published === "1" ? "Published" : "Unpublished",
+              ]}
+              image={
+                typeof gift.image_url === "string"
+                  ? gift.image_url
+                  : "https://via.placeholder.com/150"
+              }
+              price={gift.price} // Provide a default price if not available
+              published={gift.published}
+              onPublish={handlePublish}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />
@@ -229,53 +327,94 @@ const handlePageChange = (newPage: number) => {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Published</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {Gifts.map((gift) => (
-                        <TableRow key={gift.id}>
-                            <TableCell className="font-medium">{gift.title}</TableCell>
-                            <TableCell>{gift.description.slice(0,20)}...</TableCell>
-                            <TableCell>{getStatusBadge(gift.status)}</TableCell>
-                            <TableCell className="text-right">{gift.price}</TableCell>
-                            <TableCell className="text-right">{getStatusBadge(gift.published)}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleEdit.bind(null, gift.id)}
-                                        className="bg-travel-100 text-travel-800 border-travel-200 hover:bg-travel-200"
-                                    >
-                                        <Pencil className="h-4 w-4 mr-1" />
-                                        Edit
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleDelete.bind(null, gift.id)}
-                                        className="bg-red-100 text-red-800 border-travel-200 hover:bg-red-200"
-                                    >
-                                        <Trash2 className="h-4 w-4 mr-1" />
-                                        Delete
-                                    </Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Published</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Gifts.map((gift) => (
+                <TableRow key={gift.id}>
+                  <TableCell className="font-medium">{gift.title}</TableCell>
+                  <TableCell>{gift.description.slice(0, 20)}...</TableCell>
+                  <TableCell>{getStatusBadge(gift.status)}</TableCell>
+                  <TableCell className="text-right">{gift.price}</TableCell>
+                  <TableCell className="text-right">
+                    {getStatusBadge(gift.published)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleEdit.bind(null, gift.id)}
+                        className="bg-travel-100 text-travel-800 border-travel-200 hover:bg-travel-200"
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDelete.bind(null, gift.id)}
+                        className="bg-red-100 text-red-800 border-travel-200 hover:bg-red-200"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-    )}
+      )}
+
+      {/* Pagination */}
+      <Pagination className="mt-6">
+        {Gifts.length > 0 && (
+          <div className="text-sm text-muted-foreground mb-2">
+            Showing page {pagination.page} of {pagination.totalPages}
+          </div>
+        )}
+        <PaginationContent>
+          <PaginationPrevious
+            onClick={
+              pagination.page > 1
+                ? () => handlePageChange(pagination.page - 1)
+                : undefined
+            }
+            className={pagination.page <= 1 ? "disabled-class" : ""}
+          />
+          {[...Array(pagination.totalPages)].map((_, idx) => (
+            <PaginationItem key={`page-${idx}`}>
+              <PaginationLink
+                isActive={pagination.page === idx + 1}
+                onClick={() => handlePageChange(idx + 1)}
+              >
+                {idx + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationNext
+            className={
+              pagination.page >= pagination.totalPages ? "disabled-class" : ""
+            }
+            onClick={
+              pagination.page < pagination.totalPages
+                ? () => handlePageChange(pagination.page + 1)
+                : undefined
+            }
+          />
+        </PaginationContent>
+      </Pagination>
 
       {/* Add Gifts Dialog */}
       {!currentGifts && (
@@ -284,11 +423,19 @@ const handlePageChange = (newPage: number) => {
           onOpenChange={setFormOpen}
           title="Add New Gifts"
           fields={additionalFields}
-          initialValues={{title:"",description:"",content:"",image_url:"", price: 0, status: "Active", published: "1"}}
+          initialValues={{
+            title: "",
+            description: "",
+            content: "",
+            image_url: "",
+            price: 0,
+            status: "Active",
+            published: "1",
+          }}
           onSubmit={handleFormSubmit}
         />
       )}
-    
+
       {/* Edit Gifts Dialog */}
       {currentGifts && (
         <ListingForm

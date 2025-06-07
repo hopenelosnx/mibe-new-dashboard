@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PlusCircle, Loader, Pencil, Trash2, FileText, BookOpen, Wrench } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { getAllPartners, Partner, addPartner, updatePartner, deletePartner } from '@/services/dataService';
+import { getPartnerWithPagination, Partner, addPartner, updatePartner, deletePartner, publishPartner } from '@/services/Listings/Partners';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListingForm } from '@/components/forms/ListingForm';
@@ -20,7 +20,7 @@ import {
 import getStatusBadge from '@/components/ui/CustomBadges';
 
 const PartnersPage = () => {
-  const [Partners, setPartners] = useState<Partner[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   // State to toggle between card and list view
@@ -44,11 +44,17 @@ const PartnersPage = () => {
   const fetchPartners = async (page: number, limit: number) => {
     try {
       setIsLoading(true);
-      const data = await getAllPartners();
-      setPartners(data);
+      const {partners,pagination} = await getPartnerWithPagination(page,limit);
+      setPartners(partners);
+      setPagination({
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: pagination.totalPages,
+        totalRecords: pagination.totalRecords,
+      });
     } catch (error) {
-      console.error('Error fetching Partners:', error);
-      toast.error('Failed to load Partners');
+      console.error('Error fetching partners:', error);
+      toast.error('Failed to load partners');
     } finally {
       setIsLoading(false);
     }
@@ -60,11 +66,22 @@ const PartnersPage = () => {
   };
 
   const handleEdit = (id: number) => {
-    const Partner = Partners.find((g) => g.id === id);
+    const Partner = partners.find((g) => g.id === id);
     console.log('Editing Partner:', Partner);
     if (Partner) {
       setCurrentPartner(() => Partner);
       setFormOpen(true);
+    }
+  };
+
+  const handlePublish = (id: number) => {
+    const trustpartner = partners.find(f => f.id === id);
+    const values: { published: string } = { published: "" };
+    
+    if (trustpartner) { 
+      setCurrentPartner(trustpartner)
+      values.published = trustpartner.published === "1" ? "0" : "1";
+      handlePublishedPartner(values);
     }
   };
 
@@ -82,12 +99,12 @@ const PartnersPage = () => {
         ...values
       });
 
-      setPartners(Partners.map(r => r.id === currentPartner.id ? { ...r, ...response } : r));
+      setPartners(partners.map(r => r.id === currentPartner.id ? { ...r, ...response } : r));
       setFormOpen(false);
-      toast.success('Partners updated successfully');
+      toast.success('partners updated successfully');
     } catch (error) {
-      console.error('Error updating Partners:', error);
-      toast.error('Failed to update Partners');
+      console.error('Error updating partners:', error);
+      toast.error('Failed to update partners');
     } finally {
       setIsProcessing(false);
     }
@@ -99,11 +116,11 @@ const PartnersPage = () => {
     try {
       setIsProcessing(true);
       await deletePartner(PartnersToDelete);
-      setPartners(Partners.filter(r => r.id !== PartnersToDelete));
-      toast.success('Partners deleted successfully');
+      setPartners(partners.filter(r => r.id !== PartnersToDelete));
+      toast.success('partners deleted successfully');
     } catch (error) {
-      console.error('Error deleting Partners:', error);
-      toast.error('Failed to delete Partners');
+      console.error('Error deleting partners:', error);
+      toast.error('Failed to delete partners');
     } finally {
       setIsProcessing(false);
         setIsDeleteDialogOpen(false);
@@ -119,29 +136,45 @@ const PartnersPage = () => {
   const handleFormSubmit = async (values) => {
     try{
         const newPartners: Partner = await addPartner(values);
-        setPartners([...Partners, newPartners]);
+        setPartners([...partners, newPartners]);
         setFormOpen(false);
-        toast.success('Partners added successfully');
+        toast.success('partners added successfully');
     } catch (error) {
-        console.error('Error adding Partners:', error);
-        toast.error('Failed to add Partners');
+        console.error('Error adding partners:', error);
+        toast.error('Failed to add partners');
         throw error;
     }
   };
   
+    const handlePublishedPartner = async(published: { published: string })=>{
+      if(!currentPartner) return;
+      try{
+        const response = await publishPartner(currentPartner.id,{...published});
+        if(!response){
+            toast.error('Failed to publish partner');
+        }else{
+          toast.success('partner updated successfully');
+        }
+        fetchPartners(pagination.page, pagination.limit);
+        
+      }catch(error){
+        console.error(error);
+        toast.error('Failed to update partner published');
+      }finally{
+        setCurrentPartner(null)
+      }
+    }
   const additionalFields = [
     {name:"name", label:"Name", type:"text", placeholder:"Enter Partner name"},
-    {name:"published", label:"Published", type:"switch", placeholder:"Is this Partner published?"},
-    {name:"description", label:"Description", type:"textarea", placeholder:"Enter Partner description"},
-    {name:"website_url", label:"Website URL", type:"text", placeholder:"https://example.com"},
-    {name:"logo_url", label:"Logo URL", type:"text", placeholder:"https://example.com/logo.png"},
-    {name:"partnership_type", label:"Partnership Type", type:"text", placeholder:"E.g., Hotel Chain, Airline, Tourism Board"},
+    {name:"website", label:"Website URL", type:"text", placeholder:"https://example.com"},
+    {name:"logo_url", label:"Logo URL", type:"file", placeholder:"https://example.com/logo.png"},
+    // {name:"partnership_type", label:"Partnership Type", type:"text", placeholder:"E.g., Hotel Chain, Airline, Tourism Board"},
   ]
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Trusted Partners</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Trusted partners</h1>
           <p className="text-muted-foreground mt-1">
             Manage your trusted business partners
           </p>
@@ -177,7 +210,7 @@ const PartnersPage = () => {
         <div className="flex justify-center items-center h-64">
           <Loader className="h-8 w-8 animate-spin text-travel-600" />
         </div>
-      ) : Partners.length === 0 ? (
+      ) : partners.length === 0 ? (
         <div className="text-center p-12 border rounded-lg bg-muted/30">
           <h3 className="text-xl font-semibold mb-2">No partners found</h3>
           <p className="text-muted-foreground mb-4">
@@ -190,17 +223,18 @@ const PartnersPage = () => {
         </div>
       ) : isCardView ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Partners.map((partner) => (
+          {partners.map((partner) => (
             <ListingCard
               key={partner.id}
               id={partner.id}
               title={partner.name}
-              description={partner.description}
-              image={partner.logo_url}
-              badges={[partner.partnership_type, partner.published === "1"? 'Published' : 'Unpublished']}
-              onEdit={() => handleEdit(partner.id)}
-              onDelete={() => handleDelete(partner.id)}
-              price={null}
+              description={`Visit our partners at ${partner.website}`}
+              image={partner.logo_url || ""}
+              badges={[ partner.published === "1"? 'Published' : 'Unpublished']}
+              published={partner.published}
+              onEdit={handleEdit}
+              onPublish={handlePublish}
+              onDelete={handleDelete}
             />
           ))}
         </div>
@@ -210,25 +244,31 @@ const PartnersPage = () => {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Published</TableHead>
-                        <TableHead className="text-right">Partner Type</TableHead>
+                        <TableHead className="text-right">Website</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {Partners.map((partner) => (
+                    {partners.map((partner) => (
                         <TableRow key={partner.id}>
                             <TableCell className="font-medium">{partner.name}</TableCell>
-                            <TableCell>{partner.description.slice(0,20)}...</TableCell>
-                            <TableCell className="text-right">{getStatusBadge(partner.published)}</TableCell>
-                            <TableCell className="text-right">
-                                <Badge className="bg-travel-100 text-travel-800 border-travel-200">
-                                    {partner.partnership_type || 'N/A'}
-                                </Badge>
-                            </TableCell>
+                            <TableCell className="text-right">{partner.website}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end">
+                                    <button
+                                      onClick={handlePublish.bind(null,partner.id)}
+                                      className={`w-14 h-8 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
+                                        partner.published === "1" ? "bg-blue-500" : "bg-gray-300"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`w-6 h-6 bg-white rounded-full shadow-md transform transition duration-300 ${
+                                          partner.published === "1" ? "translate-x-6" : ""
+                                        }`}
+                                      ></div>
+                                    </button>
+                                  </div>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -255,6 +295,36 @@ const PartnersPage = () => {
             </Table>
         </div>
     )}
+
+          {/* Pagination */}
+            <Pagination className="mt-6">
+              {partners.length > 0 && (
+                <div className="text-sm text-muted-foreground mb-2">
+                  Showing page {pagination.page} of {pagination.totalPages}
+                </div>
+              )}
+              <PaginationContent>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                />
+                {[...Array(pagination.totalPages)].map((_, idx) => (
+                  <PaginationItem key={idx}>
+                    <PaginationLink
+                      isActive={pagination.page === idx + 1}
+                      onClick={() => handlePageChange(idx + 1)}
+                    >
+                      {idx + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationNext
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.totalPages}
+                />
+              </PaginationContent>
+            </Pagination>
+    
 
       {/* Add Partner Dialog */}
       {!currentPartner && (

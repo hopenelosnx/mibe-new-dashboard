@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -11,9 +10,9 @@ interface ListingCardProps {
   price: number | null | string;
   priceLabel?: string;
   badges?: string[];
-  published: string;
+  published?: string;
   details?: Record<string, string | number>;
-  onPublish: (id: number) => void;
+  onPublish?: (id: number) => void;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
 }
@@ -75,7 +74,7 @@ const ListingCard = ({
         {/* Toggle published */}
               <div className="flex justify-end">
                   <button
-                    onClick={onPublish.bind(null,id)}
+                    onClick={onPublish?.bind(null,id)}
                     className={`w-14 h-1 flex items-center rounded-full p-1 transition duration-300 focus:outline-none ${
                       published === "1" ? "bg-blue-500" : "bg-gray-300"
                     }`}

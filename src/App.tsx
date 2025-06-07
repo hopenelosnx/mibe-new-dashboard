@@ -32,7 +32,7 @@ import MapAndDirectionsPage from "./pages/dashboard/MapAndDirectionsPage";
 import StoriesPage from "./pages/dashboard/StoriesPage";
 import DestinationsPage from "./pages/dashboard/DestinationsPage";
 import GiftsPage from "./pages/dashboard/GiftsPage";
-import CulturalEventPage from "./pages/dashboard/CulturalEventsPage";
+import CulturalEventPage from "./pages/dashboard/CulturalEventPage";
 import TeamsPage from "./pages/dashboard/TeamsPage";
 import JobsPage from "./pages/dashboard/JobsPage";
 import CaseStudyPage from "./pages/dashboard/CaseStudyPages";
@@ -66,7 +66,7 @@ const App = () => (
               <Route path="activities" element={<ActivitiesPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="leads" element={<LeadsPage />} />
-              <Route path="partners" element={<PartnersPage />} />
+              <Route path="trustedby" element={<PartnersPage />} />
               <Route path="resources" element={<ResourcesPage />} />
               <Route path="guides" element={<GuidesPage />} />
               <Route path="toolkits" element={<ToolkitsPage />} />

@@ -12,7 +12,6 @@ export type TravelResource = {
   updated_at: string;
 };
 
-
 export const getTravelResourceWithPagination = async (resource: string ,page: number = 1, limit: number = 10): Promise<{
   travel_resource: TravelResource[];
   pagination: {
